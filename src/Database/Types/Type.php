@@ -51,22 +51,6 @@ abstract class Type
             static::registerBasicTypes();
         }
         
-        // Handle unsigned integer types by mapping them to regular integer
-        if (strpos($name, 'unsigned') !== false) {
-            // Handle cases like "bigint(20) unsigned" - remove both length specifiers and unsigned
-            $baseType = preg_replace('/\s*unsigned\s*/i', '', $name);
-            $baseType = preg_replace('/\([^)]+\)/', '', $baseType); // Remove length specifiers like (10)
-            $baseType = trim($baseType);
-            
-            if ($baseType === 'int') {
-                $baseType = 'integer';
-            }
-            
-            if (isset(static::$allTypes[$baseType])) {
-                return static::$allTypes[$baseType];
-            }
-        }
-        
         // Handle types with length specifiers like varchar(255), int(10), etc.
         if (preg_match('/^([a-zA-Z]+)\([^)]+\)/', $name, $matches)) {
             $baseType = $matches[1];
@@ -76,6 +60,22 @@ abstract class Type
                 $baseType = 'integer';
             } elseif ($baseType === 'bool') {
                 $baseType = 'boolean';
+            }
+            
+            if (isset(static::$allTypes[$baseType])) {
+                return static::$allTypes[$baseType];
+            }
+        }
+        
+        // Handle unsigned integer types by mapping them to regular integer
+        if (strpos($name, 'unsigned') !== false) {
+            // Handle cases like "bigint(20) unsigned" - remove both length specifiers and unsigned
+            $baseType = preg_replace('/\s*unsigned\s*/i', '', $name);
+            $baseType = preg_replace('/\([^)]+\)/', '', $baseType); // Remove length specifiers like (10)
+            $baseType = trim($baseType);
+            
+            if ($baseType === 'int') {
+                $baseType = 'integer';
             }
             
             if (isset(static::$allTypes[$baseType])) {
