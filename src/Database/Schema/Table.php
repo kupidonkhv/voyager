@@ -4,6 +4,7 @@ namespace TCG\Voyager\Database\Schema;
 
 use Illuminate\Support\Facades\Schema as LaravelSchema;
 use Illuminate\Support\Facades\DB;
+use TCG\Voyager\Database\Types\Type;
 
 class Table
 {
