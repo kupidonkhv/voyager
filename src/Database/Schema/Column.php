@@ -13,6 +13,16 @@ class Column
     public function __construct($name, $type, $options = [])
     {
         $this->name = $name;
+        
+        // Convert string type to Type object
+        if (is_string($type)) {
+            $typeObj = Type::getType($type);
+            if (!$typeObj) {
+                throw new \RuntimeException("Type {$type} not found");
+            }
+            $type = $typeObj;
+        }
+        
         $this->type = $type;
         $this->options = $options;
     }
