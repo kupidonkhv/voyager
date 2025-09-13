@@ -11,6 +11,7 @@ abstract class Type
     protected static $customTypesRegistered = false;
     protected static $platformTypeMapping = [];
     protected static $allTypes = [];
+    protected static $allTypeNames = null;
     protected static $platformTypes = [];
     protected static $customTypeOptions = [];
     protected static $typeCategories = [];
@@ -269,13 +270,13 @@ abstract class Type
 
     public static function getAllTypes()
     {
-        if (static::$allTypes) {
-            return static::$allTypes;
+        if (static::$allTypeNames !== null) {
+            return static::$allTypeNames;
         }
 
-        static::$allTypes = collect(static::getTypeCategories())->flatten();
+        static::$allTypeNames = collect(static::getTypeCategories())->flatten();
 
-        return static::$allTypes;
+        return static::$allTypeNames;
     }
 
     public static function getTypeCategories()
