@@ -2,76 +2,50 @@
 
 namespace TCG\Voyager\Database\Schema;
 
-use Doctrine\DBAL\Schema\SchemaException;
-use Doctrine\DBAL\Schema\Table as DoctrineTable;
+use Illuminate\Support\Facades\Schema as LaravelSchema;
 use Illuminate\Support\Facades\DB;
 use TCG\Voyager\Database\Types\Type;
 
 abstract class SchemaManager
 {
-    // todo: trim parameters
-
     public static function __callStatic($method, $args)
     {
-        return static::manager()->$method(...$args);
-    }
-
-    public static function manager()
-    {
-        return DB::connection()->getDoctrineConnection()->createSchemaManager();
-    }
-
-    public static function getDatabaseConnection()
-    {
-        return DB::connection()->getDoctrineConnection();
+        // Redirect to Laravel's Schema facade for basic operations
+        if (method_exists(LaravelSchema::class, $method)) {
+            return LaravelSchema::$method(...$args);
+        }
+        
+        throw new \BadMethodCallException("Method {$method} not found");
     }
 
     public static function tableExists($table)
     {
-        if (!is_array($table)) {
-            $table = [$table];
-        }
-
-        return static::manager()->tablesExist($table);
+        return LaravelSchema::hasTable($table);
     }
 
     public static function listTables()
     {
         $tables = [];
-
-        foreach (static::manager()->listTableNames() as $tableName) {
+        
+        foreach (LaravelSchema::getTables() as $tableInfo) {
+            $tableName = $tableInfo['name'];
             $tables[$tableName] = static::listTableDetails($tableName);
         }
 
         return $tables;
     }
 
-    /**
-     * @param string $tableName
-     *
-     * @return \TCG\Voyager\Database\Schema\Table
-     */
     public static function listTableDetails($tableName)
     {
-        $columns = static::manager()->listTableColumns($tableName);
+        Type::registerCustomPlatformTypes();
 
-        $foreignKeys = [];
-        if (static::manager()->getDatabasePlatform()->supportsForeignKeyConstraints()) {
-            $foreignKeys = static::manager()->listTableForeignKeys($tableName);
-        }
-
-        $indexes = static::manager()->listTableIndexes($tableName);
+        $columns = LaravelSchema::getColumns($tableName);
+        $indexes = LaravelSchema::getIndexes($tableName);
+        $foreignKeys = LaravelSchema::getForeignKeys($tableName);
 
         return new Table($tableName, $columns, $indexes, [], $foreignKeys, []);
     }
 
-    /**
-     * Describes given table.
-     *
-     * @param string $tableName
-     *
-     * @return \Illuminate\Support\Collection
-     */
     public static function describeTable($tableName)
     {
         Type::registerCustomPlatformTypes();
@@ -87,6 +61,7 @@ abstract class SchemaManager
             // Set the indexes and key
             $columnArr['indexes'] = [];
             $columnArr['key'] = null;
+            
             if ($columnArr['indexes'] = $table->getColumnsIndexes($columnArr['name'], true)) {
                 // Convert indexes to Array
                 foreach ($columnArr['indexes'] as $name => $index) {
@@ -108,36 +83,21 @@ abstract class SchemaManager
         Type::registerCustomPlatformTypes();
 
         $columnNames = [];
-
-        foreach (static::manager()->listTableColumns($tableName) as $column) {
-            $columnNames[] = $column->getName();
+        
+        foreach (LaravelSchema::getColumns($tableName) as $column) {
+            $columnNames[] = $column['name'];
         }
 
         return $columnNames;
     }
 
-    public static function createTable($table)
-    {
-        if (!($table instanceof DoctrineTable)) {
-            $table = Table::make($table);
-        }
-
-        static::manager()->createTable($table);
-    }
-
     public static function getDoctrineTable($table)
     {
-        $table = trim($table);
-
-        if (!static::tableExists($table)) {
-            throw SchemaException::tableDoesNotExist($table);
-        }
-
-        return static::manager()->listTableDetails($table);
+        throw new \RuntimeException('Doctrine tables are not supported in Laravel 12. Use Laravel Schema methods instead.');
     }
 
     public static function getDoctrineColumn($table, $column)
     {
-        return static::getDoctrineTable($table)->getColumn($column);
+        throw new \RuntimeException('Doctrine columns are not supported in Laravel 12. Use Laravel Schema methods instead.');
     }
 }

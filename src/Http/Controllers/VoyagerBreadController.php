@@ -4,6 +4,7 @@ namespace TCG\Voyager\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use TCG\Voyager\Database\Schema\SchemaManager;
@@ -22,18 +23,19 @@ class VoyagerBreadController extends Controller
 
         $dataTypes = Voyager::model('DataType')->select('id', 'name', 'slug')->get()->keyBy('name')->toArray();
 
-        $tables = array_map(function ($table) use ($dataTypes) {
-            $table = Str::replaceFirst(DB::getTablePrefix(), '', $table);
+        // Temporary fix for Laravel 12 - use Laravel's Schema directly
+        $tables = array_map(function ($tableInfo) use ($dataTypes) {
+            $tableName = Str::replaceFirst(DB::getTablePrefix(), '', $tableInfo['name']);
 
             $table = [
                 'prefix'     => DB::getTablePrefix(),
-                'name'       => $table,
-                'slug'       => $dataTypes[$table]['slug'] ?? null,
-                'dataTypeId' => $dataTypes[$table]['id'] ?? null,
+                'name'       => $tableName,
+                'slug'       => $dataTypes[$tableName]['slug'] ?? null,
+                'dataTypeId' => $dataTypes[$tableName]['id'] ?? null,
             ];
 
             return (object) $table;
-        }, SchemaManager::listTableNames());
+        }, Schema::getTables());
 
         return Voyager::view('voyager::tools.bread.index')->with(compact('dataTypes', 'tables'));
     }
