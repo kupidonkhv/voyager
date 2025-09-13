@@ -1,5 +1,5 @@
 {
-  "name": "tcg/voyager",
+  "name": "kupidonkhv/voyager-fork",
   "description": "A Laravel Admin Package for The Control Group to make your life easier and steer your project in the right direction",
   "keywords": [
     "laravel",
@@ -14,8 +14,8 @@
   },
   "authors": [
     {
-      "name": "Tony Lea",
-      "email": "tony.lea@thecontrolgroup.com"
+      "name": "Kupidonkhv",
+      "email": "kupidonkhv13@gmail.com"
     }
   ],
   "require": {
