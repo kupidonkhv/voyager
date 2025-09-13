@@ -68,7 +68,7 @@ abstract class Type
         }
         
         // Handle types with length specifiers like varchar(255), int(10), etc.
-        if (preg_match('/^([a-zA-Z]+)\([^)]+\)$/', $name, $matches)) {
+        if (preg_match('/^([a-zA-Z]+)\([^)]+\)/', $name, $matches)) {
             $baseType = $matches[1];
             
             // Map common type variations
