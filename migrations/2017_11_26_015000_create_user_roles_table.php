@@ -17,7 +17,7 @@ class CreateUserRolesTable extends Migration
             // Use bigInteger for user_id as modern Laravel versions use bigint by default
             $table->bigInteger('user_id')->unsigned()->index();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->bigInteger('role_id')->unsigned()->index();
+            $table->bigInteger('role_id')->default('2')->unsigned()->index();
             $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
             $table->primary(['user_id', 'role_id']);
         });

@@ -17,7 +17,7 @@
 
 **Установка для Laravel 12:**
 ```bash
-composer require tcg/voyager:^1.7.1
+composer require kupidonkhv/voyager-fork:^1.7.1
 ```
 
 Voyager остается отличным выбором для быстрого создания административных панелей с поддержкой BREAD системы!
@@ -57,14 +57,14 @@ Laravel Admin & BREAD System (Browse, Read, Edit, Add, & Delete), supporting Lar
 After creating your new Laravel application you can include the Voyager package with the following command:
 
 ```bash
-composer require tcg/voyager
+composer require kupidonkhv/voyager-fork
 ```
 
 > **Поддержка Laravel 10, 11, 12:**
 > Текущая версия Voyager полностью совместима с Laravel 10, 11 и 12. Для установки используйте:
 
 ```bash
-composer require tcg/voyager:^1.7.1
+composer require kupidonkhv/voyager-fork:^1.7.1
 ```
 
 ### 2. Add the DB Credentials & APP_URL
