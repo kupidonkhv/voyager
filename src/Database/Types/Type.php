@@ -66,6 +66,22 @@ abstract class Type
             }
         }
         
+        // Handle types with length specifiers like varchar(255), int(10), etc.
+        if (preg_match('/^([a-zA-Z]+)\([^)]+\)$/', $name, $matches)) {
+            $baseType = $matches[1];
+            
+            // Map common type variations
+            if ($baseType === 'int') {
+                $baseType = 'integer';
+            } elseif ($baseType === 'bool') {
+                $baseType = 'boolean';
+            }
+            
+            if (isset(static::$allTypes[$baseType])) {
+                return static::$allTypes[$baseType];
+            }
+        }
+        
         return static::$allTypes[$name] ?? null;
     }
 
