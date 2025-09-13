@@ -25,6 +25,15 @@ class Table
 
     public function addColumn($name, $type, $options = [])
     {
+        // Convert string type to Type object
+        if (is_string($type)) {
+            $typeObj = Type::getType($type);
+            if (!$typeObj) {
+                throw new \RuntimeException("Type {$type} not found");
+            }
+            $type = $typeObj;
+        }
+        
         $column = new Column($name, $type, $options);
         $this->columns[$name] = $column;
         return $this;
