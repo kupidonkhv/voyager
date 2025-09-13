@@ -2,17 +2,21 @@
 
 namespace TCG\Voyager\Database\Types\Common;
 
-use Doctrine\DBAL\Platforms\AbstractPlatform;
 use TCG\Voyager\Database\Types\Type;
 
 class CharType extends Type
 {
     public const NAME = 'char';
+    public const DBTYPE = 'char';
 
-    public function getSQLDeclaration(array $field, AbstractPlatform $platform)
+    public function getName()
     {
-        $field['length'] = empty($field['length']) ? 1 : $field['length'];
+        return static::NAME;
+    }
 
-        return "char({$field['length']})";
+    public function getSQLDeclaration(array $fieldDeclaration)
+    {
+        $length = empty($fieldDeclaration['length']) ? 1 : $fieldDeclaration['length'];
+        return "CHAR({$length})";
     }
 }

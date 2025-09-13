@@ -405,8 +405,10 @@ class VoyagerBaseController extends Controller
                             ? new $dataType->model_name()
                             : false;
 
-        foreach ($dataType->addRows as $key => $row) {
-            $dataType->addRows[$key]['col_width'] = $row->details->width ?? 100;
+        if (!empty($dataType->addRows)) {
+            foreach ($dataType->addRows as $key => $row) {
+                $dataType->addRows[$key]['col_width'] = $row->details->width ?? 100;
+            }
         }
 
         // If a column has a relationship associated with it, we do not want to show that field

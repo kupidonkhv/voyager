@@ -2,11 +2,27 @@
 
 namespace TCG\Voyager\Database\Schema;
 
-use Doctrine\DBAL\Schema\Comparator;
-use Doctrine\DBAL\Schema\Table as DoctrineTable;
+use Illuminate\Support\Facades\Schema as LaravelSchema;
+use Illuminate\Support\Facades\DB;
 
-class Table extends DoctrineTable
+class Table
 {
+    protected $name;
+    protected $columns = [];
+    protected $indexes = [];
+    protected $foreignKeys = [];
+    protected $options = [];
+    protected $primaryKeyName;
+
+    public function __construct($name, $columns = [], $indexes = [], $foreignKeys = [], $options = [])
+    {
+        $this->name = $name;
+        $this->columns = $columns;
+        $this->indexes = $indexes;
+        $this->foreignKeys = $foreignKeys;
+        $this->options = $options;
+    }
+
     public static function make($table)
     {
         if (!is_array($table)) {
@@ -35,7 +51,32 @@ class Table extends DoctrineTable
 
         $options = $table['options'];
 
-        return new self($name, $columns, $indexes, [], $foreignKeys, $options);
+        return new self($name, $columns, $indexes, $foreignKeys, $options);
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getColumns()
+    {
+        return $this->columns;
+    }
+
+    public function getIndexes()
+    {
+        return $this->indexes;
+    }
+
+    public function getForeignKeys()
+    {
+        return $this->foreignKeys;
+    }
+
+    public function getOptions()
+    {
+        return $this->options;
     }
 
     public function getColumnsIndexes($columns, $sort = false)
@@ -46,8 +87,8 @@ class Table extends DoctrineTable
 
         $matched = [];
 
-        foreach ($this->_indexes as $index) {
-            if ($index->spansColumns($columns)) {
+        foreach ($this->indexes as $index) {
+            if ($this->spansColumns($index, $columns)) {
                 $matched[$index->getName()] = $index;
             }
         }
@@ -82,14 +123,23 @@ class Table extends DoctrineTable
         return $matched;
     }
 
-    public function diff(DoctrineTable $compareTable)
+    protected function spansColumns($index, $columns)
     {
-        return (new Comparator())->diffTable($this, $compareTable);
+        $indexColumns = $index->getColumns();
+        return count(array_intersect($indexColumns, $columns)) == count($columns);
+    }
+
+    public function diff($compareTable)
+    {
+        // For Laravel 12 compatibility, diff functionality needs to be reimplemented
+        // This is a complex operation that requires comparing schema structures
+        throw new \RuntimeException('Table diff functionality is not yet implemented for Laravel 12');
     }
 
     public function diffOriginal()
     {
-        return (new Comparator())->diffTable(SchemaManager::getDoctrineTable($this->_name), $this);
+        // For Laravel 12 compatibility, diff functionality needs to be reimplemented
+        throw new \RuntimeException('Table diff functionality is not yet implemented for Laravel 12');
     }
 
     /**
@@ -98,13 +148,13 @@ class Table extends DoctrineTable
     public function toArray()
     {
         return [
-            'name'           => $this->_name,
-            'oldName'        => $this->_name,
+            'name'           => $this->name,
+            'oldName'        => $this->name,
             'columns'        => $this->exportColumnsToArray(),
             'indexes'        => $this->exportIndexesToArray(),
-            'primaryKeyName' => $this->_primaryKeyName,
+            'primaryKeyName' => $this->primaryKeyName,
             'foreignKeys'    => $this->exportForeignKeysToArray(),
-            'options'        => $this->_options,
+            'options'        => $this->options,
         ];
     }
 
@@ -123,7 +173,7 @@ class Table extends DoctrineTable
     {
         $exportedColumns = [];
 
-        foreach ($this->getColumns() as $name => $column) {
+        foreach ($this->columns as $name => $column) {
             $exportedColumns[] = Column::toArray($column);
         }
 
@@ -137,9 +187,9 @@ class Table extends DoctrineTable
     {
         $exportedIndexes = [];
 
-        foreach ($this->getIndexes() as $name => $index) {
+        foreach ($this->indexes as $name => $index) {
             $indexArr = Index::toArray($index);
-            $indexArr['table'] = $this->_name;
+            $indexArr['table'] = $this->name;
             $exportedIndexes[] = $indexArr;
         }
 
@@ -153,7 +203,7 @@ class Table extends DoctrineTable
     {
         $exportedForeignKeys = [];
 
-        foreach ($this->getForeignKeys() as $name => $fk) {
+        foreach ($this->foreignKeys as $name => $fk) {
             $exportedForeignKeys[$name] = ForeignKey::toArray($fk);
         }
 

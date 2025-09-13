@@ -43,7 +43,23 @@ abstract class SchemaManager
         $indexes = LaravelSchema::getIndexes($tableName);
         $foreignKeys = LaravelSchema::getForeignKeys($tableName);
 
-        return new Table($tableName, $columns, $indexes, [], $foreignKeys, []);
+        // Convert Laravel schema arrays to Voyager objects
+        $columnObjects = [];
+        foreach ($columns as $columnArr) {
+            $columnObjects[$columnArr['name']] = Column::make($columnArr, $tableName);
+        }
+        
+        $indexObjects = [];
+        foreach ($indexes as $indexArr) {
+            $indexObjects[$indexArr['name']] = Index::make($indexArr);
+        }
+        
+        $foreignKeyObjects = [];
+        foreach ($foreignKeys as $fkArr) {
+            $foreignKeyObjects[$fkArr['name']] = ForeignKey::make($fkArr);
+        }
+        
+        return new Table($tableName, $columnObjects, $indexObjects, $foreignKeyObjects, []);
     }
 
     public static function describeTable($tableName)
@@ -52,7 +68,7 @@ abstract class SchemaManager
 
         $table = static::listTableDetails($tableName);
 
-        return collect($table->columns)->map(function ($column) use ($table) {
+        return collect($table->getColumns())->map(function ($column) use ($table) {
             $columnArr = Column::toArray($column);
 
             $columnArr['field'] = $columnArr['name'];
@@ -62,16 +78,19 @@ abstract class SchemaManager
             $columnArr['indexes'] = [];
             $columnArr['key'] = null;
             
-            if ($columnArr['indexes'] = $table->getColumnsIndexes($columnArr['name'], true)) {
+            if ($indexes = $table->getColumnsIndexes($columnArr['name'], true)) {
                 // Convert indexes to Array
-                foreach ($columnArr['indexes'] as $name => $index) {
+                $columnArr['indexes'] = [];
+                foreach ($indexes as $name => $index) {
                     $columnArr['indexes'][$name] = Index::toArray($index);
                 }
 
                 // If there are multiple indexes for the column
                 // the Key will be one with highest priority
-                $indexType = array_values($columnArr['indexes'])[0]['type'];
-                $columnArr['key'] = substr($indexType, 0, 3);
+                if (!empty($columnArr['indexes'])) {
+                    $indexType = array_values($columnArr['indexes'])[0]['type'];
+                    $columnArr['key'] = substr($indexType, 0, 3);
+                }
             }
 
             return $columnArr;
@@ -91,6 +110,17 @@ abstract class SchemaManager
         return $columnNames;
     }
 
+    public static function listTableNames()
+    {
+        $tableNames = [];
+        
+        foreach (LaravelSchema::getTables() as $tableInfo) {
+            $tableNames[] = $tableInfo['name'];
+        }
+
+        return $tableNames;
+    }
+
     public static function getDoctrineTable($table)
     {
         throw new \RuntimeException('Doctrine tables are not supported in Laravel 12. Use Laravel Schema methods instead.');
@@ -99,5 +129,20 @@ abstract class SchemaManager
     public static function getDoctrineColumn($table, $column)
     {
         throw new \RuntimeException('Doctrine columns are not supported in Laravel 12. Use Laravel Schema methods instead.');
+    }
+
+    public static function getDatabasePlatformName()
+    {
+        $driver = DB::connection()->getDriverName();
+        
+        // Map Laravel driver names to platform names
+        $platformMap = [
+            'mysql' => 'mysql',
+            'pgsql' => 'postgresql', 
+            'sqlite' => 'sqlite',
+            'sqlsrv' => 'mssql',
+        ];
+        
+        return $platformMap[$driver] ?? $driver;
     }
 }

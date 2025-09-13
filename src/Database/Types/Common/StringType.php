@@ -4,10 +4,10 @@ namespace TCG\Voyager\Database\Types\Common;
 
 use TCG\Voyager\Database\Types\Type;
 
-class TextType extends Type
+class StringType extends Type
 {
-    public const NAME = 'text';
-    public const DBTYPE = 'text';
+    public const NAME = "string";
+    public const DBTYPE = "varchar";
 
     public function getName()
     {
@@ -16,6 +16,7 @@ class TextType extends Type
 
     public function getSQLDeclaration(array $fieldDeclaration)
     {
-        return 'TEXT';
+        $length = $fieldDeclaration["length"] ?? 255;
+        return "VARCHAR({$length})";
     }
 }

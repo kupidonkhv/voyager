@@ -2,7 +2,7 @@
 
 namespace TCG\Voyager\Database\Schema;
 
-use Doctrine\DBAL\Schema\Index as DoctrineIndex;
+
 
 abstract class Index
 {
@@ -23,8 +23,8 @@ abstract class Index
             $isPrimary = ($type == static::PRIMARY);
             $isUnique = $isPrimary || ($type == static::UNIQUE);
         } else {
-            $isPrimary = $index['isPrimary'];
-            $isUnique = $index['isUnique'];
+            $isPrimary = $index['is_primary'] ?? $index['isPrimary'] ?? false;
+            $isUnique = $index['is_unique'] ?? $index['isUnique'] ?? false;
 
             // Set the type
             if ($isPrimary) {
@@ -48,35 +48,50 @@ abstract class Index
         $flags = $index['flags'] ?? [];
         $options = $index['options'] ?? [];
 
-        return new DoctrineIndex($name, $columns, $isUnique, $isPrimary, $flags, $options);
+        return new IndexObject($name, $columns, $isUnique, $isPrimary, $flags, $options);
     }
 
     /**
      * @return array
      */
-    public static function toArray(DoctrineIndex $index)
+    public static function toArray($index)
     {
-        $name = $index->getName();
-        $columns = $index->getColumns();
+        if (is_array($index)) {
+            $name = $index['name'] ?? '';
+            $columns = $index['columns'] ?? [];
 
-        return [
-            'name'        => $name,
-            'oldName'     => $name,
-            'columns'     => $columns,
-            'type'        => static::getType($index),
-            'isPrimary'   => $index->isPrimary(),
-            'isUnique'    => $index->isUnique(),
-            'isComposite' => count($columns) > 1,
-            'flags'       => $index->getFlags(),
-            'options'     => $index->getOptions(),
-        ];
+            return [
+                'name'        => $name,
+                'oldName'     => $name,
+                'columns'     => $columns,
+                'type'        => static::getType($index),
+                'isPrimary'   => $index['is_primary'] ?? false,
+                'isUnique'    => $index['is_unique'] ?? false,
+                'isComposite' => count($columns) > 1,
+                'flags'       => $index['flags'] ?? [],
+                'options'     => $index['options'] ?? [],
+            ];
+        } else {
+            // Handle IndexObject
+            return [
+                'name'        => $index->getName(),
+                'oldName'     => $index->getName(),
+                'columns'     => $index->getColumns(),
+                'type'        => $index->isPrimary() ? static::PRIMARY : ($index->isUnique() ? static::UNIQUE : static::INDEX),
+                'isPrimary'   => $index->isPrimary(),
+                'isUnique'    => $index->isUnique(),
+                'isComposite' => count($index->getColumns()) > 1,
+                'flags'       => $index->getFlags(),
+                'options'     => $index->getOptions(),
+            ];
+        }
     }
 
-    public static function getType(DoctrineIndex $index)
+    public static function getType($index)
     {
-        if ($index->isPrimary()) {
+        if (isset($index['is_primary']) && $index['is_primary']) {
             return static::PRIMARY;
-        } elseif ($index->isUnique()) {
+        } elseif (isset($index['is_unique']) && $index['is_unique']) {
             return static::UNIQUE;
         } else {
             return static::INDEX;
@@ -108,5 +123,55 @@ abstract class Index
             static::UNIQUE,
             static::INDEX,
         ];
+    }
+}
+
+class IndexObject
+{
+    protected $name;
+    protected $columns;
+    protected $isUnique;
+    protected $isPrimary;
+    protected $flags;
+    protected $options;
+
+    public function __construct($name, $columns, $isUnique, $isPrimary, $flags, $options)
+    {
+        $this->name = $name;
+        $this->columns = $columns;
+        $this->isUnique = $isUnique;
+        $this->isPrimary = $isPrimary;
+        $this->flags = $flags;
+        $this->options = $options;
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getColumns()
+    {
+        return $this->columns;
+    }
+
+    public function isUnique()
+    {
+        return $this->isUnique;
+    }
+
+    public function isPrimary()
+    {
+        return $this->isPrimary;
+    }
+
+    public function getFlags()
+    {
+        return $this->flags;
+    }
+
+    public function getOptions()
+    {
+        return $this->options;
     }
 }

@@ -2,35 +2,93 @@
 
 namespace TCG\Voyager\Database\Schema;
 
-use Doctrine\DBAL\Schema\Column as DoctrineColumn;
-use Doctrine\DBAL\Types\Type as DoctrineType;
 use TCG\Voyager\Database\Types\Type;
 
-abstract class Column
+class Column
 {
+    protected $name;
+    protected $type;
+    protected $options = [];
+
+    public function __construct($name, $type, $options = [])
+    {
+        $this->name = $name;
+        $this->type = $type;
+        $this->options = $options;
+    }
+
     public static function make(array $column, string $tableName = null)
     {
         $name = Identifier::validate($column['name'], 'Column');
         $type = $column['type'];
-        $type = ($type instanceof DoctrineType) ? $type : DoctrineType::getType(trim($type['name']));
-        $type->tableName = $tableName;
+        
+        // For Laravel 12 compatibility, use our custom Type system
+        if (is_array($type)) {
+            $typeName = trim($type['name']);
+            $typeObj = Type::getType($typeName);
+            if (!$typeObj) {
+                throw new \RuntimeException("Type {$typeName} not found");
+            }
+            $type = $typeObj;
+        } elseif (is_string($type)) {
+            // Handle string type names
+            $typeObj = Type::getType($type);
+            if (!$typeObj) {
+                throw new \RuntimeException("Type {$type} not found");
+            }
+            $type = $typeObj;
+        }
+        
+        if (is_object($type)) {
+            $type->tableName = $tableName;
+        }
 
         $options = array_diff_key($column, array_flip(['name', 'composite', 'oldName', 'null', 'extra', 'type', 'charset', 'collation']));
 
-        return new DoctrineColumn($name, $type, $options);
+        return new self($name, $type, $options);
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getType()
+    {
+        return $this->type;
+    }
+
+    public function getOptions()
+    {
+        return $this->options;
+    }
+
+    public function getAutoincrement()
+    {
+        return $this->options['autoincrement'] ?? false;
+    }
+
+    public function getNotnull()
+    {
+        return !($this->options['notnull'] ?? true);
     }
 
     /**
      * @return array
      */
-    public static function toArray(DoctrineColumn $column)
+    public static function toArray($column)
     {
-        $columnArr = $column->toArray();
-        $columnArr['type'] = Type::toArray($columnArr['type']);
-        $columnArr['oldName'] = $columnArr['name'];
-        $columnArr['null'] = $columnArr['notnull'] ? 'NO' : 'YES';
-        $columnArr['extra'] = static::getExtra($column);
-        $columnArr['composite'] = false;
+        $columnArr = [
+            'name' => $column->getName(),
+            'type' => Type::toArray($column->getType()),
+            'oldName' => $column->getName(),
+            'null' => $column->getNotnull() ? 'NO' : 'YES',
+            'extra' => static::getExtra($column),
+            'composite' => false,
+        ];
+
+        // Merge with options
+        $columnArr = array_merge($columnArr, $column->getOptions());
 
         return $columnArr;
     }
@@ -38,7 +96,7 @@ abstract class Column
     /**
      * @return string
      */
-    protected static function getExtra(DoctrineColumn $column)
+    protected static function getExtra($column)
     {
         $extra = '';
 

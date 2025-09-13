@@ -11,22 +11,26 @@ trait BreadRelationshipParser
     protected function removeRelationshipField(DataType $dataType, $bread_type = 'browse')
     {
         $forget_keys = [];
-        foreach ($dataType->{$bread_type.'Rows'} as $key => $row) {
-            if ($row->type == 'relationship') {
-                if ($row->details->type == 'belongsTo') {
-                    $relationshipField = @$row->details->column;
-                    $keyInCollection = key($dataType->{$bread_type.'Rows'}->where('field', '=', $relationshipField)->toArray());
-                    array_push($forget_keys, $keyInCollection);
+        if (!empty($dataType->{$bread_type.'Rows'})) {
+            foreach ($dataType->{$bread_type.'Rows'} as $key => $row) {
+                if ($row && $row->type == 'relationship') {
+                    if ($row->details && $row->details->type == 'belongsTo') {
+                        $relationshipField = @$row->details->column;
+                        $keyInCollection = key($dataType->{$bread_type.'Rows'}->where('field', '=', $relationshipField)->toArray());
+                        array_push($forget_keys, $keyInCollection);
+                    }
                 }
             }
         }
 
-        foreach ($forget_keys as $forget_key) {
-            $dataType->{$bread_type.'Rows'}->forget($forget_key);
-        }
+        if (!empty($dataType->{$bread_type.'Rows'})) {
+            foreach ($forget_keys as $forget_key) {
+                $dataType->{$bread_type.'Rows'}->forget($forget_key);
+            }
 
-        // Reindex collection
-        $dataType->{$bread_type.'Rows'} = $dataType->{$bread_type.'Rows'}->values();
+            // Reindex collection
+            $dataType->{$bread_type.'Rows'} = $dataType->{$bread_type.'Rows'}->values();
+        }
     }
 
     /**
@@ -76,7 +80,9 @@ trait BreadRelationshipParser
 
             // DataRow is translatable so it will always try to load translations
             // even if current Model is not translatable
-            $dataType->{$action.'Rows'}->load('translations');
+            if (!empty($dataType->{$action.'Rows'})) {
+                $dataType->{$action.'Rows'}->load('translations');
+            }
         }
     }
 }

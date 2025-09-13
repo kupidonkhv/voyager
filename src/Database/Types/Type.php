@@ -2,12 +2,11 @@
 
 namespace TCG\Voyager\Database\Types;
 
-use Doctrine\DBAL\Platforms\AbstractPlatform as DoctrineAbstractPlatform;
-use Doctrine\DBAL\Types\Type as DoctrineType;
+
 use TCG\Voyager\Database\Platforms\Platform;
 use TCG\Voyager\Database\Schema\SchemaManager;
 
-abstract class Type extends DoctrineType
+abstract class Type
 {
     protected static $customTypesRegistered = false;
     protected static $platformTypeMapping = [];
@@ -29,7 +28,59 @@ abstract class Type extends DoctrineType
         return static::NAME;
     }
 
-    public static function toArray(DoctrineType $type)
+    public static function hasType($name)
+    {
+        return isset(static::$allTypes[$name]);
+    }
+
+    public static function addType($name, $class)
+    {
+        static::$allTypes[$name] = new $class();
+    }
+
+    public static function overrideType($name, $class)
+    {
+        static::$allTypes[$name] = new $class();
+    }
+
+    public static function getType($name)
+    {
+        if (!isset(static::$allTypes[$name])) {
+            // Try to register basic types if not found
+            static::registerBasicTypes();
+        }
+        
+        return static::$allTypes[$name] ?? null;
+    }
+
+    protected static function registerBasicTypes()
+    {
+        // Register common basic types
+        $basicTypes = [
+            'integer' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'string' => \TCG\Voyager\Database\Types\Common\StringType::class,
+            'varchar' => \TCG\Voyager\Database\Types\Common\VarCharType::class,
+            'text' => \TCG\Voyager\Database\Types\Common\TextType::class,
+            'boolean' => \TCG\Voyager\Database\Types\Common\BooleanType::class,
+            'datetime' => \TCG\Voyager\Database\Types\Common\DateTimeType::class,
+            'date' => \TCG\Voyager\Database\Types\Common\DateType::class,
+            'time' => \TCG\Voyager\Database\Types\Common\TimeType::class,
+            'float' => \TCG\Voyager\Database\Types\Common\FloatType::class,
+            'double' => \TCG\Voyager\Database\Types\Common\DoubleType::class,
+            'decimal' => \TCG\Voyager\Database\Types\Common\DecimalType::class,
+            'numeric' => \TCG\Voyager\Database\Types\Common\NumericType::class,
+            'json' => \TCG\Voyager\Database\Types\Common\JsonType::class,
+            'char' => \TCG\Voyager\Database\Types\Common\CharType::class,
+        ];
+
+        foreach ($basicTypes as $name => $class) {
+            if (!static::hasType($name) && class_exists($class)) {
+                static::addType($name, $class);
+            }
+        }
+    }
+
+    public static function toArray($type)
     {
         $customTypeOptions = $type->customOptions ?? [];
 
@@ -48,11 +99,11 @@ abstract class Type extends DoctrineType
             static::registerCustomPlatformTypes();
         }
 
-        $platform = SchemaManager::getDatabasePlatform();
+        $platformName = SchemaManager::getDatabasePlatformName();
 
         static::$platformTypes = Platform::getPlatformTypes(
-            $platform->getName(),
-            static::getPlatformTypeMapping($platform)
+            $platformName,
+            static::getPlatformTypeMapping($platformName)
         );
 
         static::$platformTypes = static::$platformTypes->map(function ($type) {
@@ -62,15 +113,15 @@ abstract class Type extends DoctrineType
         return static::$platformTypes;
     }
 
-    public static function getPlatformTypeMapping(DoctrineAbstractPlatform $platform)
+    public static function getPlatformTypeMapping($platformName)
     {
         if (static::$platformTypeMapping) {
             return static::$platformTypeMapping;
         }
 
-        static::$platformTypeMapping = collect(
-            get_protected_property($platform, 'doctrineTypeMapping')
-        );
+        // For Laravel 12 compatibility, return empty collection
+        // since Doctrine type mapping is no longer available
+        static::$platformTypeMapping = collect([]);
 
         return static::$platformTypeMapping;
     }
@@ -81,8 +132,7 @@ abstract class Type extends DoctrineType
             return;
         }
 
-        $platform = SchemaManager::getDatabasePlatform();
-        $platformName = ucfirst($platform->getName());
+        $platformName = ucfirst(SchemaManager::getDatabasePlatformName());
 
         $customTypes = array_merge(
             static::getPlatformCustomTypes('Common'),
@@ -100,7 +150,8 @@ abstract class Type extends DoctrineType
 
             $dbType = defined("{$type}::DBTYPE") ? $type::DBTYPE : $name;
 
-            $platform->registerDoctrineTypeMapping($dbType, $name);
+            // Doctrine type mapping is no longer supported in Laravel 12
+            // $platform->registerDoctrineTypeMapping($dbType, $name);
         }
 
         static::addCustomTypeOptions($platformName);
@@ -131,11 +182,18 @@ abstract class Type extends DoctrineType
         $types = [];
 
         foreach (glob($typesPath.'*.php') as $classFile) {
-            $types[] = $namespace.str_replace(
+            $className = str_replace(
                 '.php',
                 '',
                 str_replace($typesPath, '', $classFile)
             );
+            
+            // Skip BasicTypes as it's not a data type but a registrar
+            if ($className === 'BasicTypes') {
+                continue;
+            }
+            
+            $types[] = $namespace.$className;
         }
 
         return $types;
