@@ -45,7 +45,8 @@ class Column
             $typeObj = Type::getType($type);
             if (!$typeObj) {
                 // Debug: log what type we're trying to find
-                error_log("DEBUG: Trying to find type: '{$type}'");
+                file_put_contents(storage_path('logs/voyager_debug.log'), 
+                    "DEBUG: Trying to find type: '{$type}'\n", FILE_APPEND);
                 throw new \RuntimeException("Type {$type} not found");
             }
             $type = $typeObj;
