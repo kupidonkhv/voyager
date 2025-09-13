@@ -23,6 +23,19 @@ class Table
         $this->options = $options;
     }
 
+    public function addColumn($name, $type, $options = [])
+    {
+        $column = new Column($name, $type, $options);
+        $this->columns[$name] = $column;
+        return $this;
+    }
+
+    public function setPrimaryKey($columns, $name = 'primary')
+    {
+        $this->primaryKeyName = $name;
+        return $this;
+    }
+
     public static function make($table)
     {
         if (!is_array($table)) {
