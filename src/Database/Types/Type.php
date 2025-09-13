@@ -46,9 +46,24 @@ abstract class Type
 
     public static function getType($name)
     {
-        if (!isset(static::$allTypes[$name])) {
-            // Try to register basic types if not found
+        // Ensure basic types are registered first
+        if (empty(static::$allTypes)) {
             static::registerBasicTypes();
+        }
+        
+        // Handle unsigned integer types by mapping them to regular integer
+        if (strpos($name, 'unsigned') !== false) {
+            $baseType = preg_replace('/\s*unsigned\s*/i', '', $name);
+            $baseType = preg_replace('/\([^)]+\)/', '', $baseType); // Remove length specifiers like (10)
+            $baseType = trim($baseType);
+            
+            if ($baseType === 'int') {
+                $baseType = 'integer';
+            }
+            
+            if (isset(static::$allTypes[$baseType])) {
+                return static::$allTypes[$baseType];
+            }
         }
         
         return static::$allTypes[$name] ?? null;
@@ -59,6 +74,11 @@ abstract class Type
         // Register common basic types
         $basicTypes = [
             'integer' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'int' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'tinyint' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'smallint' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'mediumint' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
+            'bigint' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
             'string' => \TCG\Voyager\Database\Types\Common\StringType::class,
             'varchar' => \TCG\Voyager\Database\Types\Common\VarCharType::class,
             'text' => \TCG\Voyager\Database\Types\Common\TextType::class,
