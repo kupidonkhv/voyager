@@ -44,6 +44,8 @@ class Column
             // Handle string type names
             $typeObj = Type::getType($type);
             if (!$typeObj) {
+                // Debug: log what type we're trying to find
+                error_log("DEBUG: Trying to find type: '{$type}'");
                 throw new \RuntimeException("Type {$type} not found");
             }
             $type = $typeObj;
