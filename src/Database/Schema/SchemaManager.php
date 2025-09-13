@@ -18,7 +18,7 @@ abstract class SchemaManager
 
     public static function manager()
     {
-        return DB::connection()->getDoctrineSchemaManager();
+        return DB::connection()->getDoctrineConnection()->createSchemaManager();
     }
 
     public static function getDatabaseConnection()
