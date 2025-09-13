@@ -53,6 +53,7 @@ abstract class Type
         
         // Handle unsigned integer types by mapping them to regular integer
         if (strpos($name, 'unsigned') !== false) {
+            // Handle cases like "bigint(20) unsigned" - remove both length specifiers and unsigned
             $baseType = preg_replace('/\s*unsigned\s*/i', '', $name);
             $baseType = preg_replace('/\([^)]+\)/', '', $baseType); // Remove length specifiers like (10)
             $baseType = trim($baseType);
