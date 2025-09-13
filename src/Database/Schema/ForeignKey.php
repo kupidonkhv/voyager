@@ -24,9 +24,9 @@ class ForeignKey
     public static function make(array $foreignKey)
     {
         $localTable = $foreignKey['localTable'] ?? null;
-        $localColumns = $foreignKey['localColumns'];
-        $foreignTable = $foreignKey['foreignTable'];
-        $foreignColumns = $foreignKey['foreignColumns'];
+        $localColumns = $foreignKey['localColumns'] ?? [];
+        $foreignTable = $foreignKey['foreignTable'] ?? '';
+        $foreignColumns = $foreignKey['foreignColumns'] ?? [];
         $options = $foreignKey['options'] ?? [];
 
         // Set the name
