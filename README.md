@@ -1,19 +1,26 @@
 <p align="center"><a href="https://voyager.devdojo.com" target="_blank"><img width="400" src="https://s3.amazonaws.com/thecontrolgroup/voyager.png"></a></p>
 
-> [!Warning]
-> We have decided to archive Voyager as there are many more modern options available. You may still use Voyager, but it will not be receiving any more updates. Here are some alternatives that we recommend:
+> [!Note]
+> **Voyager продолжает развиваться!** Форк проекта активно поддерживается и обновляется для совместимости с новыми версиями Laravel.
 
-- [Wave SaaS Starter Kit](https://devdojo.com/wave)
-- [FilamentPHP Admin Panel & More](https://filamentphp.com)
-- [Genesis Starter Kit](https://github.com/thedevdojo/genesis)
+### 🚀 Новые возможности и обновления
 
-Of course, you may also wish to reach for Laravels admin panel [Nova](https://nova.laravel.com/), or you may want to reach for one of their many [Starter Kits](https://laravel.com/docs/starter-kits).
+**Поддержка Laravel 12:**
+- Полная совместимость с Laravel 12.28.1
+- Обновлены зависимости для работы с современными версиями PHP
+- Исправлены проблемы с миграциями
 
-Thanks for all the wonderful times 🕺
+**Основные изменения:**
+- Удалены устаревшие методы Doctrine из миграций
+- Обновлены версии зависимостей в composer.json
+- Улучшена совместимость с современными версиями PHP 8.2+
 
-> Voyager is built with Vue and Bootstrap. If you are looking for a Laravel Starter Kit built that uses Livewire and Tailwind, you may be interested in checking out [Genesis](https://github.com/thedevdojo/genesis)
+**Установка для Laravel 12:**
+```bash
+composer require tcg/voyager:^1.7.1
+```
 
-<p align="center"><a href="https://github.com/thedevdojo/genesis" target="_blank"><img src="https://github.com/thedevdojo/voyager/assets/601261/6ffa6ac4-ea1e-4c8a-8360-b347377b8201" height="auto" width="100%"></a></p>
+Voyager остается отличным выбором для быстрого создания административных панелей с поддержкой BREAD системы!
 
 <p align="center">
 <a href="https://packagist.org/packages/tcg/voyager"><img src="https://poser.pugx.org/tcg/voyager/downloads.svg?format=flat" alt="Total Downloads"></a>
@@ -37,9 +44,11 @@ View the Voyager Cheat Sheet: https://voyager-cheatsheet.ulties.com/
 
 <hr>
 
-Laravel Admin & BREAD System (Browse, Read, Edit, Add, & Delete), supporting Laravel 8 and newer!
+Laravel Admin & BREAD System (Browse, Read, Edit, Add, & Delete), supporting Laravel 10, 11, and 12!
 
-> Want to use Laravel 6 or 7? Use [Voyager 1.5](https://github.com/the-control-group/voyager/tree/1.5)
+> Looking for older Laravel versions?
+> - Laravel 8-9: Use Voyager 1.6.x
+> - Laravel 6-7: Use [Voyager 1.5](https://github.com/the-control-group/voyager/tree/1.5)
 
 ## Installation Steps
 
@@ -51,10 +60,11 @@ After creating your new Laravel application you can include the Voyager package 
 composer require tcg/voyager
 ```
 
-> If you are installing this on Laravel 10, we are working on getting a permanent release available; however, you can still use this with Larvel 10 by requiring the following:
+> **Поддержка Laravel 10, 11, 12:**
+> Текущая версия Voyager полностью совместима с Laravel 10, 11 и 12. Для установки используйте:
 
 ```bash
-composer require tcg/voyager dev-1.6-l10
+composer require tcg/voyager:^1.7.1
 ```
 
 ### 2. Add the DB Credentials & APP_URL
