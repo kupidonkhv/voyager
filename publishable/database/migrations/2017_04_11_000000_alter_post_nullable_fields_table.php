@@ -13,9 +13,7 @@ class AlterPostNullableFieldsTable extends Migration
      */
     public function up()
     {
-        $platform = \DB::getDoctrineSchemaManager()->getDatabasePlatform();
-        $platform->registerDoctrineTypeMapping('enum', 'string');
-
+        // Doctrine methods removed in Laravel 12 - using direct schema modification
         Schema::table('posts', function (Blueprint $table) {
             $table->text('excerpt')->nullable()->change();
             $table->text('meta_description')->nullable()->change();
