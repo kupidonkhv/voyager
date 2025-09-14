@@ -94,6 +94,10 @@ abstract class Type
 
     protected static function registerBasicTypes()
     {
+        // Debug: log registration
+        file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+            "DEBUG: registerBasicTypes() called\n", FILE_APPEND);
+        
         // Register common basic types
         $basicTypes = [
             'integer' => \TCG\Voyager\Database\Types\Common\IntegerType::class,
@@ -118,8 +122,15 @@ abstract class Type
         ];
 
         foreach ($basicTypes as $name => $class) {
+            file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+                "DEBUG: Processing type '{$name}' => '{$class}'\n", FILE_APPEND);
             if (!static::hasType($name) && class_exists($class)) {
+                file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+                    "DEBUG: Adding type '{$name}'\n", FILE_APPEND);
                 static::addType($name, $class);
+            } else {
+                file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+                    "DEBUG: Skipping type '{$name}' (hasType: " . (static::hasType($name) ? 'true' : 'false') . ", class_exists: " . (class_exists($class) ? 'true' : 'false') . ")\n", FILE_APPEND);
             }
         }
     }
