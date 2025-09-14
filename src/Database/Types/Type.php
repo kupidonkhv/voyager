@@ -51,6 +51,12 @@ abstract class Type
             static::registerBasicTypes();
         }
         
+        // Debug: log what we're trying to find and available types
+        file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+            "DEBUG: Looking for type: '{$name}'\n", FILE_APPEND);
+        file_put_contents(storage_path('logs/voyager_types_debug.log'), 
+            "DEBUG: Available types: " . implode(', ', array_keys(static::$allTypes)) . "\n", FILE_APPEND);
+        
         // Handle types with length specifiers like varchar(255), int(10), etc.
         if (preg_match('/^([a-zA-Z]+)\([^)]+\)/', $name, $matches)) {
             $baseType = $matches[1];
