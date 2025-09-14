@@ -66,6 +66,8 @@ abstract class Type
                 $baseType = 'integer';
             } elseif ($baseType === 'bool') {
                 $baseType = 'boolean';
+            } elseif ($baseType === 'bigint') {
+                $baseType = 'integer';
             }
             
             if (isset(static::$allTypes[$baseType])) {
