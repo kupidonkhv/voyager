@@ -1,6 +1,6 @@
 {
   "name": "kupidonkhv/voyager-fork",
-  "version": "1.7.25",
+  "version": "1.7.26",
   "description": "A Laravel Admin Package for The Control Group to make your life easier and steer your project in the right direction",
   "keywords": [
     "laravel",
@@ -22,7 +22,7 @@
   "require": {
     "php": "^8.2|^8.3",
     "illuminate/support": "^10.0|^11.0|^12.0",
-    "intervention/image": "^2.7",
+    "intervention/image": "^3.7",
     "laravel/ui": "^4.0",
     "arrilot/laravel-widgets": "^3.14",
     "league/flysystem": "^3.0",
