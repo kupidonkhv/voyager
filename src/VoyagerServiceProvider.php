@@ -55,7 +55,7 @@ class VoyagerServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->register(VoyagerEventServiceProvider::class);
-        $this->app->register(Intervention\Image\Laravel\ServiceProvider::class);
+        // Intervention\Image v3.x doesn't require service provider registration
         $this->app->register(VoyagerDummyServiceProvider::class);
 
         $loader = AliasLoader::getInstance();

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Laravel\Facades\Image;
+use Intervention\Image\Facades\Image;
 use TCG\Voyager\Events\MediaFileAdded;
 use TCG\Voyager\Facades\Voyager;
 
@@ -274,7 +274,7 @@ class VoyagerMediaController extends Controller
                 if ($request->file->getClientOriginalExtension() == 'gif') {
                     copy($request->file->getRealPath(), $realPath.$file);
                 } else {
-                    $image = $image->orientate();
+                    $image = $image->orient();
                     // Generate thumbnails
                     if (property_exists($details, 'thumbnails') && is_array($details->thumbnails)) {
                         foreach ($details->thumbnails as $thumbnail_data) {

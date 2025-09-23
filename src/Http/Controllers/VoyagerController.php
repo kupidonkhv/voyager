@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Constraint;
-use Intervention\Image\Laravel\Facades\Image;
+use Intervention\Image\Facades\Image;
 use TCG\Voyager\Facades\Voyager;
 
 class VoyagerController extends Controller
@@ -60,7 +60,7 @@ class VoyagerController extends Controller
                     $constraint->upsize();
                 });
             if ($ext !== 'gif') {
-                $image->orientate();
+                $image->orient();
             }
             $image->encode($file->getClientOriginalExtension(), 75);
 
