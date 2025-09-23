@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Constraint;
-use Intervention\Image\Facades\Image;
+use Intervention\Image\Laravel\Facades\Image;
 use TCG\Voyager\Facades\Voyager;
 
 class VoyagerController extends Controller
@@ -54,7 +54,7 @@ class VoyagerController extends Controller
         $ext = $file->guessClientExtension();
 
         if (in_array($ext, ['jpeg', 'jpg', 'png', 'gif'])) {
-            $image = Image::make($file)
+            $image = Image::read($file)
                 ->resize($resizeWidth, $resizeHeight, function (Constraint $constraint) {
                     $constraint->aspectRatio();
                     $constraint->upsize();

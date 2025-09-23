@@ -23,6 +23,7 @@
     "php": "^8.2|^8.3",
     "illuminate/support": "^10.0|^11.0|^12.0",
     "intervention/image": "^3.7",
+    "intervention/image-laravel": "^3.5",
     "laravel/ui": "^4.0",
     "arrilot/laravel-widgets": "^3.14",
     "league/flysystem": "^3.0",

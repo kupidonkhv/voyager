@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image;
+use Intervention\Image\Laravel\Facades\Image;
 use TCG\Voyager\Events\MediaFileAdded;
 use TCG\Voyager\Facades\Voyager;
 
@@ -269,7 +269,7 @@ class VoyagerMediaController extends Controller
             ];
             if (in_array($request->file->getMimeType(), $imageMimeTypes)) {
                 $content = Storage::disk($this->filesystem)->get($file);
-                $image = Image::make($content);
+                $image = Image::read($content);
 
                 if ($request->file->getClientOriginalExtension() == 'gif') {
                     copy($request->file->getRealPath(), $realPath.$file);
@@ -279,7 +279,7 @@ class VoyagerMediaController extends Controller
                     if (property_exists($details, 'thumbnails') && is_array($details->thumbnails)) {
                         foreach ($details->thumbnails as $thumbnail_data) {
                             $type = $thumbnail_data->type ?? 'fit';
-                            $thumbnail = Image::make(clone $image);
+                            $thumbnail = $image->clone();
                             if ($type == 'fit') {
                                 $thumbnail = $thumbnail->fit(
                                     $thumbnail_data->width,
@@ -370,7 +370,7 @@ class VoyagerMediaController extends Controller
             }
 
             $content = Storage::disk($this->filesystem)->get($originImagePath);
-            $image = Image::make($content)->crop($width, $height, $x, $y);
+            $image = Image::read($content)->crop($width, $height, $x, $y);
             Storage::disk($this->filesystem)->put($destImagePath, $image->encode()->encoded);
 
             $success = true;
@@ -385,7 +385,7 @@ class VoyagerMediaController extends Controller
 
     private function addWatermarkToImage($image, $options)
     {
-        $watermark = Image::make(Storage::disk($this->filesystem)->path($options->source));
+        $watermark = Image::read(Storage::disk($this->filesystem)->path($options->source));
         // Resize watermark
         $width = $image->width() * (($options->size ?? 15) / 100);
         $watermark->resize($width, null, function ($constraint) {

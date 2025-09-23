@@ -5,7 +5,7 @@ namespace TCG\Voyager\Http\Controllers\ContentTypes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Constraint;
-use Intervention\Image\Facades\Image as InterventionImage;
+use Intervention\Image\Laravel\Facades\Image as InterventionImage;
 
 class MultipleImage extends BaseType
 {
@@ -26,7 +26,7 @@ class MultipleImage extends BaseType
                 continue;
             }
 
-            $image = InterventionImage::make($file)->orientate();
+            $image = InterventionImage::read($file)->orientate();
 
             $resize_width = null;
             $resize_height = null;
@@ -80,7 +80,7 @@ class MultipleImage extends BaseType
                             $thumb_resize_height = $thumb_resize_height * $scale;
                         }
 
-                        $image = InterventionImage::make($file)
+                        $image = InterventionImage::read($file)
                             ->orientate()
                             ->resize(
                                 $thumb_resize_width,
@@ -95,7 +95,7 @@ class MultipleImage extends BaseType
                     } elseif (isset($this->options->thumbnails) && isset($thumbnails->crop->width) && isset($thumbnails->crop->height)) {
                         $crop_width = $thumbnails->crop->width;
                         $crop_height = $thumbnails->crop->height;
-                        $image = InterventionImage::make($file)
+                        $image = InterventionImage::read($file)
                             ->orientate()
                             ->fit($crop_width, $crop_height)
                             ->encode($file->getClientOriginalExtension(), $resize_quality);
