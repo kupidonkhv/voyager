@@ -299,6 +299,25 @@
                                             @endif
                                         @endif
                                         <input type="file" name="{{ $setting->key }}">
+                                    @elseif($setting->type == "multiple_images")
+                                        @if(isset( $setting->value ) && !empty( $setting->value ))
+                                            @php
+                                                $images = json_decode($setting->value);
+                                                if (!is_array($images)) {
+                                                    $images = [];
+                                                }
+                                            @endphp
+                                            @foreach($images as $image)
+                                                @if(Storage::disk(config('voyager.storage.disk'))->exists($image))
+                                                    <div class="img_settings_container" style="display: inline-block; margin-right: 10px;">
+                                                        <a href="{{ route('voyager.settings.delete_value', $setting->id) }}" class="voyager-x delete_value"></a>
+                                                        <img src="{{ Storage::disk(config('voyager.storage.disk'))->url($image) }}" style="width:100px; height:auto; padding:2px; border:1px solid #ddd; margin-bottom:10px;">
+                                                    </div>
+                                                @endif
+                                            @endforeach
+                                            <div class="clearfix"></div>
+                                        @endif
+                                        <input type="file" name="{{ $setting->key }}[]" multiple>
                                     @elseif($setting->type == "select_dropdown")
                                         <?php $options = json_decode($setting->details); ?>
                                         <?php $selected_value = (isset($setting->value) && !empty($setting->value)) ? $setting->value : NULL; ?>
@@ -392,6 +411,7 @@
                             <option value="select_dropdown">{{ __('voyager::form.type_selectdropdown') }}</option>
                             <option value="file">{{ __('voyager::form.type_file') }}</option>
                             <option value="image">{{ __('voyager::form.type_image') }}</option>
+                            <option value="multiple_images">{{ __('voyager::form.type_multipleimages') }}</option>
                         </select>
                     </div>
                     <div class="col-md-3">

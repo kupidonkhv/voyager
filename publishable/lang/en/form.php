@@ -7,6 +7,7 @@ return [
     'type_codeeditor'              => 'Code Editor',
     'type_file'                    => 'File',
     'type_image'                   => 'Image',
+    'type_multipleimages'          => 'Multiple Images',
     'type_radiobutton'             => 'Radio Button',
     'type_richtextbox'             => 'Rich Textbox',
     'type_selectdropdown'          => 'Select Dropdown',
