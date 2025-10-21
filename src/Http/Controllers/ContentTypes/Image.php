@@ -52,7 +52,19 @@ class Image extends BaseType
             $resize_quality = isset($this->options->quality) ? intval($this->options->quality) : 75;
 
             $image = $image->resize($resize_width, $resize_height);
-            $encoded = $image->encodeByPath($file->getPathname(), $resize_quality);
+            $extension = $file->getClientOriginalExtension();
+            
+            // Handle different encoding methods based on file type
+            if ($extension === 'jpg' || $extension === 'jpeg') {
+                $encoded = $image->toJpg($resize_quality);
+            } elseif ($extension === 'png') {
+                $encoded = $image->toPng();
+            } elseif ($extension === 'gif') {
+                $encoded = $image->toGif();
+            } else {
+                // Default to JPG for unknown types
+                $encoded = $image->toJpg($resize_quality);
+            }
 
             if ($this->is_animated_gif($file)) {
                 Storage::disk(config('voyager.storage.disk'))->put($fullPath, file_get_contents($file), 'public');
@@ -91,14 +103,38 @@ class Image extends BaseType
                         $thumb_image = $thumb_image
                             ->orient()
                             ->resize($thumb_resize_width, $thumb_resize_height);
-                        $thumb_encoded = $thumb_image->encodeByPath($file->getPathname(), $resize_quality);
+                        $extension = $file->getClientOriginalExtension();
+                        
+                        // Handle different encoding methods based on file type
+                        if ($extension === 'jpg' || $extension === 'jpeg') {
+                            $thumb_encoded = $thumb_image->toJpg($resize_quality);
+                        } elseif ($extension === 'png') {
+                            $thumb_encoded = $thumb_image->toPng();
+                        } elseif ($extension === 'gif') {
+                            $thumb_encoded = $thumb_image->toGif();
+                        } else {
+                            // Default to JPG for unknown types
+                            $thumb_encoded = $thumb_image->toJpg($resize_quality);
+                        }
                     } elseif (isset($thumbnails->crop->width) && isset($thumbnails->crop->height)) {
                         $crop_width = $thumbnails->crop->width;
                         $crop_height = $thumbnails->crop->height;
                         $thumb_image = $manager->read($file->getPathname())
                             ->orient()
                             ->resize($crop_width, $crop_height);
-                        $thumb_encoded = $thumb_image->encodeByPath($file->getPathname(), $resize_quality);
+                        $extension = $file->getClientOriginalExtension();
+                        
+                        // Handle different encoding methods based on file type
+                        if ($extension === 'jpg' || $extension === 'jpeg') {
+                            $thumb_encoded = $thumb_image->toJpg($resize_quality);
+                        } elseif ($extension === 'png') {
+                            $thumb_encoded = $thumb_image->toPng();
+                        } elseif ($extension === 'gif') {
+                            $thumb_encoded = $thumb_image->toGif();
+                        } else {
+                            // Default to JPG for unknown types
+                            $thumb_encoded = $thumb_image->toJpg($resize_quality);
+                        }
                     }
 
                     Storage::disk(config('voyager.storage.disk'))->put(
