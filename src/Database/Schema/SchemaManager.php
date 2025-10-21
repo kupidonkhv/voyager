@@ -27,8 +27,18 @@ abstract class SchemaManager
     {
         $tables = [];
         
-        foreach (LaravelSchema::getTables() as $tableInfo) {
-            $tableName = $tableInfo['name'];
+        // Get tables only from current database
+        $currentDb = DB::getDatabaseName();
+        $tablesFromDb = DB::select("
+            SELECT TABLE_NAME as name 
+            FROM information_schema.tables 
+            WHERE table_schema = ? 
+            AND table_type = 'BASE TABLE'
+            ORDER BY TABLE_NAME
+        ", [$currentDb]);
+
+        foreach ($tablesFromDb as $tableInfo) {
+            $tableName = $tableInfo->name;
             $tables[$tableName] = static::listTableDetails($tableName);
         }
 
@@ -114,8 +124,18 @@ abstract class SchemaManager
     {
         $tableNames = [];
         
-        foreach (LaravelSchema::getTables() as $tableInfo) {
-            $tableNames[] = $tableInfo['name'];
+        // Get tables only from current database
+        $currentDb = DB::getDatabaseName();
+        $tablesFromDb = DB::select("
+            SELECT TABLE_NAME as name 
+            FROM information_schema.tables 
+            WHERE table_schema = ? 
+            AND table_type = 'BASE TABLE'
+            ORDER BY TABLE_NAME
+        ", [$currentDb]);
+
+        foreach ($tablesFromDb as $tableInfo) {
+            $tableNames[] = $tableInfo->name;
         }
 
         return $tableNames;
