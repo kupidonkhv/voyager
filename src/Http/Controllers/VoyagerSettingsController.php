@@ -210,6 +210,39 @@ class VoyagerSettingsController extends Controller
         ]);
     }
 
+    public function delete_multiple_image($id, $imageIndex)
+    {
+        $setting = Voyager::model('Setting')->find($id);
+
+        // Check permission
+        $this->authorize('delete', $setting);
+
+        if (isset($setting->id) && $setting->type == 'multiple_images') {
+            $images = json_decode($setting->value, true) ?? [];
+            
+            if (isset($images[$imageIndex])) {
+                // Delete the image file from storage
+                if (Storage::disk(config('voyager.storage.disk'))->exists($images[$imageIndex])) {
+                    Storage::disk(config('voyager.storage.disk'))->delete($images[$imageIndex]);
+                }
+                
+                // Remove the image from the array
+                array_splice($images, $imageIndex, 1);
+                
+                // Update the setting value
+                $setting->value = json_encode($images);
+                $setting->save();
+            }
+        }
+
+        request()->session()->flash('setting_tab', $setting->group);
+
+        return back()->with([
+            'message'    => __('voyager::settings.successfully_removed', ['name' => __('voyager::generic.image')]),
+            'alert-type' => 'success',
+        ]);
+    }
+
     public function move_down($id)
     {
         // Check permission

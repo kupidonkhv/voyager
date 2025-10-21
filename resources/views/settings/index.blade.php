@@ -307,10 +307,10 @@
                                                     $images = [];
                                                 }
                                             @endphp
-                                            @foreach($images as $image)
+                                            @foreach($images as $index => $image)
                                                 @if(Storage::disk(config('voyager.storage.disk'))->exists($image))
                                                     <div class="img_settings_container" style="display: inline-block; margin-right: 10px;">
-                                                        <a href="{{ route('voyager.settings.delete_value', $setting->id) }}" class="voyager-x delete_value"></a>
+                                                        <a href="{{ route('voyager.settings.delete_multiple_image', ['id' => $setting->id, 'imageIndex' => $index]) }}" class="voyager-x delete_value"></a>
                                                         <img src="{{ Storage::disk(config('voyager.storage.disk'))->url($image) }}" style="width:100px; height:auto; padding:2px; border:1px solid #ddd; margin-bottom:10px;">
                                                     </div>
                                                 @endif

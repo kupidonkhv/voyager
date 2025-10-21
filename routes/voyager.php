@@ -85,6 +85,7 @@ Route::group(['as' => 'voyager.'], function () {
             Route::get('{id}/move_up', ['uses' => $namespacePrefix.'VoyagerSettingsController@move_up',      'as' => 'move_up']);
             Route::get('{id}/move_down', ['uses' => $namespacePrefix.'VoyagerSettingsController@move_down',    'as' => 'move_down']);
             Route::put('{id}/delete_value', ['uses' => $namespacePrefix.'VoyagerSettingsController@delete_value', 'as' => 'delete_value']);
+            Route::put('{id}/delete_multiple_image/{imageIndex}', ['uses' => $namespacePrefix.'VoyagerSettingsController@delete_multiple_image', 'as' => 'delete_multiple_image']);
         });
 
         // Admin Media
