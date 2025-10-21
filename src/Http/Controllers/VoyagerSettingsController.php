@@ -101,6 +101,19 @@ class VoyagerSettingsController extends Controller
                 continue;
             }
 
+            // For multiple_images type, merge new images with existing ones
+            if ($setting->type == 'multiple_images') {
+                if ($content == null) {
+                    // If no new images uploaded, keep existing ones
+                    continue;
+                } else {
+                    // Merge new images with existing ones
+                    $existingImages = json_decode($setting->value, true) ?? [];
+                    $newImages = json_decode($content, true) ?? [];
+                    $content = json_encode(array_merge($existingImages, $newImages));
+                }
+            }
+
             $key = preg_replace('/^'.Str::slug($setting->group).'./i', '', $setting->key);
 
             $setting->group = $request->input(str_replace('.', '_', $setting->key).'_group');
