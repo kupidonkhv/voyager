@@ -172,6 +172,9 @@ abstract class Type
             return;
         }
 
+        // Ensure basic types are registered first
+        static::registerBasicTypes();
+
         $platformName = ucfirst(SchemaManager::getDatabasePlatformName());
 
         $customTypes = array_merge(
