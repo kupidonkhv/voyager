@@ -89,6 +89,14 @@ abstract class Index
 
     public static function getType($index)
     {
+        // Handle IndexObject
+        if (is_object($index) && method_exists($index, 'isPrimary') && $index->isPrimary()) {
+            return static::PRIMARY;
+        } elseif (is_object($index) && method_exists($index, 'isUnique') && $index->isUnique()) {
+            return static::UNIQUE;
+        }
+        
+        // Handle array
         if (isset($index['is_primary']) && $index['is_primary']) {
             return static::PRIMARY;
         } elseif (isset($index['is_unique']) && $index['is_unique']) {
