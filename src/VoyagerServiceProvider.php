@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
+use Mews\Captcha\CaptchaServiceProvider;
+use Mews\Captcha\Facades\Captcha as CaptchaFacade;
+use MonstreX\VoyagerExtension\VoyagerExtensionServiceProvider;
 use TCG\Voyager\Events\FormFieldsRegistered;
 use TCG\Voyager\Facades\Voyager as VoyagerFacade;
 use TCG\Voyager\FormFields\After\DescriptionHandler;
@@ -59,6 +62,7 @@ class VoyagerServiceProvider extends ServiceProvider
 
         $loader = AliasLoader::getInstance();
         $loader->alias('Voyager', VoyagerFacade::class);
+        $loader->alias('Captcha', CaptchaFacade::class);
 
         $this->app->singleton('voyager', function () {
             return new Voyager();
@@ -74,6 +78,9 @@ class VoyagerServiceProvider extends ServiceProvider
         $this->registerFormFields();
 
         $this->registerConfigs();
+
+        $this->app->register(VoyagerExtensionServiceProvider::class);
+        $this->app->register(CaptchaServiceProvider::class);
 
         if ($this->app->runningInConsole()) {
             $this->registerPublishableResources();
@@ -253,7 +260,21 @@ class VoyagerServiceProvider extends ServiceProvider
             'config' => [
                 "{$publishablePath}/config/voyager.php" => config_path('voyager.php'),
             ],
-
+            'voyager-extension-config' => [
+                "{$publishablePath}/config/voyager-extension.php" => config_path('voyager-extension.php'),
+            ],
+            'captcha-config' => [
+                dirname(__DIR__).'/src/Captcha/config/captcha.php' => config_path('captcha.php'),
+            ],
+            'voyager-extension-assets' => [
+                "{$publishablePath}/assets/vendor/voyager-extension/" => public_path('vendor/voyager-extension/assets'),
+            ],
+            'voyager-extension-views' => [
+                dirname(__DIR__).'/resources/views/vendor/voyager-extension/' => resource_path('views/vendor/voyager-extension'),
+            ],
+            'voyager-extension-lang' => [
+                "{$publishablePath}/lang/vendor/voyager-extension/" => lang_path('vendor/voyager-extension'),
+            ],
         ];
 
         foreach ($publishable as $group => $paths) {

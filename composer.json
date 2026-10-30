@@ -25,7 +25,13 @@
     "laravel/ui": "^4.0",
     "arrilot/laravel-widgets": "^3.14",
     "league/flysystem": "^3.0",
+    "spatie/laravel-medialibrary": "^11.14",
+    "ext-gd": "*",
     "ext-json": "*"
+  },
+  "conflict": {
+    "mews/captcha": "*",
+    "monstrex/voyager-extension": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^10.0|^11.0|^12.0",
@@ -36,8 +42,13 @@
   },
   "autoload": {
     "psr-4": {
-      "TCG\\Voyager\\": "src/"
-    }
+      "TCG\\Voyager\\": "src/",
+      "MonstreX\\VoyagerExtension\\": "src/Extension/",
+      "Mews\\Captcha\\": "src/Captcha/"
+    },
+    "files": [
+      "src/Captcha/helpers.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {

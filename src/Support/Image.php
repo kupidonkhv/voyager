@@ -32,6 +32,15 @@ class Image
             : $manager->decode($source);
     }
 
+    public static function create($width, $height)
+    {
+        $manager = static::manager();
+
+        return method_exists($manager, 'create')
+            ? $manager->create($width, $height)
+            : $manager->createImage($width, $height);
+    }
+
     public static function fit($image, $width, $height = null, $position = 'center')
     {
         return is_null($height)

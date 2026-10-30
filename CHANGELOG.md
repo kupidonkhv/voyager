@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.45] - 2026-10-30
+
+### 📦 Embedded Extensions
+
+- Embedded `kupidonkhv/voyager-extension` into `src/Extension` with its views, assets, routes, form fields, generators and clone action
+- Embedded `kupidonkhv/captcha` into `src/Captcha`, including helpers, routes, validation rules and the `Captcha` facade alias
+- Added `spatie/laravel-medialibrary` and `ext-gd` dependencies for extended media fields
+- Added publish tags for extension config/assets/views/lang and captcha config
+- Added `voyager-extension.enabled` switch (`VOYAGER_EXTENSION_ENABLED`)
+- Declared conflicts with `mews/captcha` and `monstrex/voyager-extension`
+
+### 🐛 Laravel 13 Fixes
+
+- Refreshed Laravel route name lookups after Voyager route registration
+- Replaced Carbon's removed `formatLocalized()` in extension BREAD views with `Voyager::formatDate`
+
+### ✅ Verification
+
+- 135 tests, 902 assertions on Laravel 13.39.0 / PHP 8.4
+- Fresh Laravel 13 install with `voyager:install --with-dummy`
+- Verified login, dashboard, BREAD CRUD, BREAD editor, database manager, menu builder, extension assets/clone/translations and captcha image/validation
+
 ## [1.7.44] - 2026-10-30
 
 ### 🚀 Laravel 13 Compatibility

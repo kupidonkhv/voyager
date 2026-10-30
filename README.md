@@ -13,19 +13,54 @@
 - Обновлены Artisan-команды, Compass, MakeModel и тесты под Laravel 13 / PHPUnit 12
 - Сохранена совместимость с Laravel 10, 11 и 12
 
+**Встроенные расширения (начиная с 1.7.45):**
+- `kupidonkhv/voyager-extension` включён прямо в пакет: расширенные BREAD-шаблоны, клонирование записей, поля `adv_image`, `adv_media_files`, `adv_inline_set`, генераторы путей Media Library и расширенный конструктор меню
+- `kupidonkhv/captcha` включён прямо в пакет: изображения капчи, API-капча и правила валидации `captcha` / `captcha_api`
+- Отдельные пакеты `monstrex/voyager-extension`, `kupidonkhv/captcha` и `mews/captcha` больше не нужны и несовместимы с этой версией
+- Для работы расширенных медиа-полей добавлена зависимость `spatie/laravel-medialibrary` и `ext-gd`
+
 **Основные изменения:**
 - Удалены устаревшие методы Doctrine из миграций и работы со схемой
 - Обновлены версии зависимостей в composer.json
 - Исправлены неявно nullable-параметры для PHP 8.4
 - Добавлен слой совместимости Intervention Image 3/4
+- Форматирование дат в расширенных BREAD-шаблонах переведено на `Voyager::formatDate` (Carbon 3)
+- После регистрации маршрутов обновляются name-lookups Laravel, поэтому BREAD-маршруты доступны и при повторной загрузке `routes/web.php`
 
 **Установка для Laravel 13:**
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.44
+composer require kupidonkhv/voyager-fork:^1.7.45
 ```
+
+Если в проекте уже установлены старые отдельные пакеты, сначала удалите их:
+```bash
+composer remove monstrex/voyager-extension kupidonkhv/captcha mews/captcha
+composer require kupidonkhv/voyager-fork:^1.7.45
+```
+
+Публикация конфигурации и ресурсов (необязательно):
+```bash
+php artisan vendor:publish --tag=voyager-extension-config
+php artisan vendor:publish --tag=captcha-config
+php artisan vendor:publish --tag=voyager-extension-assets
+```
+
+Расширение включено по умолчанию. Отключить его можно в `.env`:
+```dotenv
+VOYAGER_EXTENSION_ENABLED=false
+```
+
+Капча доступна по адресу `/captcha/{config}` (по умолчанию `/captcha/default`), через helper `captcha()`, `captcha_img()`, `captcha_src()` и правила валидации `captcha` / `captcha_api`.
 
 > Если Packagist ещё не проиндексировал новый релиз, подождите несколько минут или установите ветку разработки:
 > `composer require kupidonkhv/voyager-fork:dev-1.7`
+
+**Проверка перед релизом:**
+```bash
+composer validate
+vendor/bin/phpunit
+```
+Текущий набор: 135 тестов, 902 утверждения (Laravel 13.39.0, PHP 8.4).
 
 Voyager остается отличным выбором для быстрого создания административных панелей с поддержкой BREAD системы!
 
@@ -64,7 +99,7 @@ composer require kupidonkhv/voyager-fork
 > Текущая версия Voyager полностью совместима с Laravel 10, 11, 12 и 13. Для установки используйте:
 
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.44
+composer require kupidonkhv/voyager-fork:^1.7.45
 ```
 
 ### 2. Add the DB Credentials & APP_URL

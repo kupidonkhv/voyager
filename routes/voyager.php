@@ -138,3 +138,5 @@ Route::group(['as' => 'voyager.'], function () {
 
     event(new RoutingAfter());
 });
+
+Route::getRoutes()->refreshNameLookups();
