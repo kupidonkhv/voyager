@@ -29,13 +29,13 @@
 
 **Установка для Laravel 13:**
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.45
+composer require kupidonkhv/voyager-fork:^1.7.46
 ```
 
 Если в проекте уже установлены старые отдельные пакеты, сначала удалите их:
 ```bash
 composer remove monstrex/voyager-extension kupidonkhv/captcha mews/captcha
-composer require kupidonkhv/voyager-fork:^1.7.45
+composer require kupidonkhv/voyager-fork:^1.7.46
 ```
 
 Публикация конфигурации и ресурсов (необязательно):
@@ -99,7 +99,7 @@ composer require kupidonkhv/voyager-fork
 > Текущая версия Voyager полностью совместима с Laravel 10, 11, 12 и 13. Для установки используйте:
 
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.45
+composer require kupidonkhv/voyager-fork:^1.7.46
 ```
 
 ### 2. Add the DB Credentials & APP_URL

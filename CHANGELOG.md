@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.46] - 2026-10-30
+
+### 🐛 Packaging Fix
+
+- Include extension views, assets and translations in the released archive
+- Anchor the root `vendor` ignore rule so `resources/views/vendor`, `publishable/assets/vendor` and `publishable/lang/vendor` are tracked
+- Verified installation from the Packagist release archive in a clean Laravel 13 application
+
 ## [1.7.45] - 2026-10-30
 
 ### 📦 Embedded Extensions
