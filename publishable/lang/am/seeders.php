@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Թարմացված է',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Գալերիա',
+            'plural'   => 'Գալերաներ',
+        ],
         'category' => [
             'singular' => 'Կատեգորիա',
             'plural'   => 'Կատեգորիաներ',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Օգտատերեր',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Նկարագրություն',
+        'dimensions'   => 'Պատկերի չափը',
+        'sort_order'   => 'Դասակարգման կարգ',
+    ],
     'menu_items' => [
+        'galleries'    => 'Գալերաներ',
         'bread'        => 'BREAD',
         'categories'   => 'Կատեգորիաներ',
         'compass'      => 'Կողմնացույց',

@@ -30,6 +30,10 @@ return [
         'updated_at'       => 'Güncelleme Zamanı',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Galeri',
+            'plural'   => 'Galeriler',
+        ],
         'category' => [
             'singular' => 'Kategori',
             'plural'   => 'Kategoriler',
@@ -55,7 +59,13 @@ return [
             'plural'   => 'Kullanıcılar',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Açıklama',
+        'dimensions'   => 'Küçük resim boyutu',
+        'sort_order'   => 'Sıralama',
+    ],
     'menu_items' => [
+        'galleries'    => 'Galeriler',
         'bread'        => 'BREAD',
         'categories'   => 'Kategoriler',
         'compass'      => 'Pusula',

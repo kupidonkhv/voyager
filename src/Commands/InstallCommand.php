@@ -143,6 +143,9 @@ class InstallCommand extends Command
             $this->call('db:seed', ['--class' => 'VoyagerDummyDatabaseSeeder', '--force' => $this->option('force')]);
         }
 
+        $this->info('Installing the Gallery BREAD and menu item');
+        $this->call('voyager:gallery:install');
+
         $this->info('Adding the storage symlink to your public folder');
         $this->call('storage:link');
 

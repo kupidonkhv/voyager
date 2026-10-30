@@ -19,6 +19,15 @@
 - Отдельные пакеты `monstrex/voyager-extension`, `kupidonkhv/captcha` и `mews/captcha` больше не нужны и несовместимы с этой версией
 - Для работы расширенных медиа-полей добавлена зависимость `spatie/laravel-medialibrary` и `ext-gd`
 
+**Галереи (начиная с 1.7.47):**
+- BREAD-раздел «Галереи» с загрузкой фотографий, подписями, сортировкой перетаскиванием и выбором размера миниатюр
+- Пункт меню админки создаётся автоматически на языке, выбранном в `APP_LOCALE` (для `en` и `ru` есть готовые переводы, для остальных языков используется английский fallback)
+- Вставка галереи в контент: `%gallery="Название галереи"%`
+- Готовые шаблоны вывода: `default`, `photo-carousel` и `rounded` — например, `%gallery="Название" form="rounded"%`
+- Отдельная установка или повторная установка: `php artisan voyager:gallery:install`
+- Настройки в `config/voyager.php`: `gallery.enabled`, `gallery.menu_title`, `gallery.thumb_dimensions`, `gallery.max_upload_size`, `gallery.accepted_mime_types`
+- Переменные окружения: `VOYAGER_GALLERY_ENABLED`, `VOYAGER_GALLERY_MENU_TITLE`, `VOYAGER_GALLERY_THUMB_DIMENSIONS`, `VOYAGER_GALLERY_MAX_UPLOAD_SIZE`
+
 **Основные изменения:**
 - Удалены устаревшие методы Doctrine из миграций и работы со схемой
 - Обновлены версии зависимостей в composer.json
@@ -29,13 +38,13 @@
 
 **Установка для Laravel 13:**
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.46
+composer require kupidonkhv/voyager-fork:^1.7.47
 ```
 
 Если в проекте уже установлены старые отдельные пакеты, сначала удалите их:
 ```bash
 composer remove monstrex/voyager-extension kupidonkhv/captcha mews/captcha
-composer require kupidonkhv/voyager-fork:^1.7.46
+composer require kupidonkhv/voyager-fork:^1.7.47
 ```
 
 Публикация конфигурации и ресурсов (необязательно):
@@ -60,7 +69,7 @@ VOYAGER_EXTENSION_ENABLED=false
 composer validate
 vendor/bin/phpunit
 ```
-Текущий набор: 135 тестов, 902 утверждения (Laravel 13.39.0, PHP 8.4).
+Текущий набор: 140 тестов, 937 утверждений (PHP 8.4). Отдельно проверено в свежем приложении на Laravel 13.39.0.
 
 Voyager остается отличным выбором для быстрого создания административных панелей с поддержкой BREAD системы!
 
@@ -99,7 +108,7 @@ composer require kupidonkhv/voyager-fork
 > Текущая версия Voyager полностью совместима с Laravel 10, 11, 12 и 13. Для установки используйте:
 
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.46
+composer require kupidonkhv/voyager-fork:^1.7.47
 ```
 
 ### 2. Add the DB Credentials & APP_URL

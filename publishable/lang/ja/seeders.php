@@ -29,6 +29,10 @@ return [
         'updated_at'       => '更新日時',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'ギャラリー',
+            'plural'   => 'ギャラリー',
+        ],
         'category' => [
             'singular' => 'Category',
             'plural'   => 'Categories',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Users',
         ],
     ],
+    'gallery'    => [
+        'description'  => '説明',
+        'dimensions'   => 'サムネイルサイズ',
+        'sort_order'   => '並び順',
+    ],
     'menu_items' => [
+        'galleries'    => 'ギャラリー',
         'bread'        => 'BREAD',
         'categories'   => 'Categories',
         'compass'      => 'Compass',

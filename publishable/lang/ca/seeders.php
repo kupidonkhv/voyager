@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Actualitzat a',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Galeria',
+            'plural'   => 'Galeries',
+        ],
         'category' => [
             'singular' => 'Categoria',
             'plural'   => 'Categories',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Usuaris',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Descripció',
+        'dimensions'   => 'Mida de la miniatura',
+        'sort_order'   => 'Ordre',
+    ],
     'menu_items' => [
+        'galleries'    => 'Galeries',
         'bread'        => 'BREAD',
         'categories'   => 'Categories',
         'compass'      => 'Compàs',

@@ -29,6 +29,10 @@ return [
         'updated_at'       => '創建於',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => '圖庫',
+            'plural'   => '圖庫',
+        ],
         'category' => [
             'singular' => '分類目錄',
             'plural'   => '分類目錄',
@@ -54,7 +58,13 @@ return [
             'plural'   => '用戶',
         ],
     ],
+    'gallery'    => [
+        'description'  => '描述',
+        'dimensions'   => '縮圖尺寸',
+        'sort_order'   => '排序',
+    ],
     'menu_items' => [
+        'galleries'    => '圖庫',
         'bread'        => 'BREAD',
         'categories'   => '分類目錄',
         'compass'      => '指南針',

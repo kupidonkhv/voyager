@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Ενημερώθηκε στις',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Γκαλερί',
+            'plural'   => 'Γκαλερί',
+        ],
         'category' => [
             'singular' => 'Κατηγορία',
             'plural'   => 'ΚΑτηγορίες',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Χρήστες',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Περιγραφή',
+        'dimensions'   => 'Μέγεθος μικρογραφίας',
+        'sort_order'   => 'Σειρά ταξινόμησης',
+    ],
     'menu_items' => [
+        'galleries'    => 'Γκαλερί',
         'bread'        => 'BREAD',
         'categories'   => 'Κατηγορίες',
         'compass'      => 'Πυξίδα',

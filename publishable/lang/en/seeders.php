@@ -30,6 +30,10 @@ return [
         'updated_at'       => 'Updated At',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Gallery',
+            'plural'   => 'Galleries',
+        ],
         'category' => [
             'singular' => 'Category',
             'plural'   => 'Categories',
@@ -55,7 +59,13 @@ return [
             'plural'   => 'Users',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Description',
+        'dimensions'   => 'Thumbnail size',
+        'sort_order'   => 'Sort order',
+    ],
     'menu_items' => [
+        'galleries'    => 'Galleries',
         'bread'        => 'BREAD',
         'categories'   => 'Categories',
         'compass'      => 'Compass',

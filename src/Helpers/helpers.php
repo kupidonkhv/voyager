@@ -21,6 +21,13 @@ if (!function_exists('voyager_asset')) {
     }
 }
 
+if (!function_exists('voyager_gallery')) {
+    function voyager_gallery($title, $form = 'default')
+    {
+        return app(TCG\Voyager\Support\GalleryRenderer::class)->renderGallery($title, $form);
+    }
+}
+
 if (!function_exists('get_file_name')) {
     function get_file_name($name)
     {

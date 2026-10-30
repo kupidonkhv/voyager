@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Yenilənmə tarixi',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Qalereya',
+            'plural'   => 'Qalereyalar',
+        ],
         'category' => [
             'singular' => 'Kateqoriya',
             'plural'   => 'Kateqoriyalar',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'İstifadəçilər',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Təsvir',
+        'dimensions'   => 'Şəkil ölçüsü',
+        'sort_order'   => 'Sıralama',
+    ],
     'menu_items' => [
+        'galleries'    => 'Qalereyalar',
         'bread'        => 'BREAD',
         'categories'   => 'Kateqoriyalar',
         'compass'      => 'Kompas',

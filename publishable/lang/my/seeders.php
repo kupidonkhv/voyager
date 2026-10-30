@@ -29,6 +29,10 @@ return [
         'updated_at' => 'ရက်စွဲနှင့် အချိန်ကို အပ်ဒိတ်လုပ်ပါ။',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'ဓာတ်ပုံပြခန်း',
+            'plural'   => 'ဓာတ်ပုံပြခန်းများ',
+        ],
         'category' => [
             'singular' => 'Category',
             'plural' => 'Categories',
@@ -54,7 +58,13 @@ return [
             'plural' => 'Users',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'ဖော်ပြချက်',
+        'dimensions'   => 'ပုံအရွယ်အစား',
+        'sort_order'   => 'အစီအစဉ်',
+    ],
     'menu_items' => [
+        'galleries'    => 'ဓာတ်ပုံပြခန်းများ',
         'bread' => 'BREAD',
         'categories' => 'Categories',
         'compass' => 'Compass',

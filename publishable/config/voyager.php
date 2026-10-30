@@ -71,6 +71,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Gallery
+    |--------------------------------------------------------------------------
+    |
+    | Galleries are stored with spatie/laravel-medialibrary. Set enabled to
+    | false to skip creating the BREAD and admin menu item. menu_title can
+    | override the localized menu label.
+    |
+    */
+
+    'gallery' => [
+        'enabled'                 => env('VOYAGER_GALLERY_ENABLED', true),
+        'menu_title'              => env('VOYAGER_GALLERY_MENU_TITLE'),
+        'thumb_dimensions'        => env('VOYAGER_GALLERY_THUMB_DIMENSIONS', '400x300'),
+        'max_upload_size'         => env('VOYAGER_GALLERY_MAX_UPLOAD_SIZE', 10240),
+        'accepted_mime_types'     => [
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Config
     |--------------------------------------------------------------------------
     |

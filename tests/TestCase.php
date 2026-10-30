@@ -4,6 +4,7 @@ namespace TCG\Voyager\Tests;
 
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Orchestra\Testbench\BrowserKit\TestCase as OrchestraTestCase;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use TCG\Voyager\Models\User;
 use TCG\Voyager\VoyagerServiceProvider;
 
@@ -48,6 +49,7 @@ class TestCase extends OrchestraTestCase
     {
         return [
             VoyagerServiceProvider::class,
+            MediaLibraryServiceProvider::class,
         ];
     }
 

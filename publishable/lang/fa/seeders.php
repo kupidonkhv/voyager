@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'به روز شده در',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'گالری',
+            'plural'   => 'گالری‌ها',
+        ],
         'category' => [
             'singular' => 'دسته بندی',
             'plural'   => 'دسته بندی ها',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'کاربران',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'توضیحات',
+        'dimensions'   => 'اندازه تصویر بندانگشتی',
+        'sort_order'   => 'ترتیب',
+    ],
     'menu_items' => [
+        'galleries'    => 'گالری‌ها',
         'categories'   => 'دسته بندی ها',
         'compass'      => 'قطب نما',
         'dashboard'    => 'داشبورد',

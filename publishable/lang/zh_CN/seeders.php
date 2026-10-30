@@ -29,6 +29,10 @@ return [
         'updated_at'       => '创建于',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => '图库',
+            'plural'   => '图库',
+        ],
         'category' => [
             'singular' => '分类目录',
             'plural'   => '分类目录',
@@ -54,7 +58,13 @@ return [
             'plural'   => '用户',
         ],
     ],
+    'gallery'    => [
+        'description'  => '描述',
+        'dimensions'   => '缩略图尺寸',
+        'sort_order'   => '排序',
+    ],
     'menu_items' => [
+        'galleries'    => '图库',
         'bread'        => 'bread',
         'categories'   => '分类目录',
         'compass'      => '指南针',

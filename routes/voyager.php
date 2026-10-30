@@ -55,6 +55,18 @@ Route::group(['as' => 'voyager.'], function () {
             // do nothing, might just be because table not yet migrated.
         }
 
+        // Gallery media routes
+        Route::group([
+            'as'     => 'galleries.',
+            'prefix' => 'galleries',
+        ], function () {
+            Route::post('{id}/media/upload', [\TCG\Voyager\Http\Controllers\VoyagerGalleryController::class, 'uploadMedia'])->name('upload-media');
+            Route::post('{id}/media/delete', [\TCG\Voyager\Http\Controllers\VoyagerGalleryController::class, 'deleteMedia'])->name('delete-media');
+            Route::post('{id}/media/regenerate', [\TCG\Voyager\Http\Controllers\VoyagerGalleryController::class, 'regenerateMedia'])->name('regenerate-media');
+            Route::post('{id}/media/description', [\TCG\Voyager\Http\Controllers\VoyagerGalleryController::class, 'updateMediaDescription'])->name('update-media-description');
+            Route::post('{id}/media/sort', [\TCG\Voyager\Http\Controllers\VoyagerGalleryController::class, 'sortMedia'])->name('sort-media');
+        });
+
         // Menu Routes
         Route::group([
             'as'     => 'menus.',

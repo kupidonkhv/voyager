@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Променено на',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Галерия',
+            'plural'   => 'Галерии',
+        ],
         'category' => [
             'singular' => 'Категория',
             'plural'   => 'Категории',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Потребители',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Описание',
+        'dimensions'   => 'Размер на миниатюрата',
+        'sort_order'   => 'Ред на сортиране',
+    ],
     'menu_items' => [
+        'galleries'    => 'Галерии',
         'bread'        => 'BREAD',
         'categories'   => 'Категории',
         'compass'      => 'Compass',

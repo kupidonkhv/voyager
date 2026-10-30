@@ -30,6 +30,10 @@ return [
         'updated_at'       => 'កាលបរិច្ឆេទកែសម្រួល',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'វិចិត្រសាល',
+            'plural'   => 'វិចិត្រសាល',
+        ],
         'category' => [
             'singular' => 'ប្រភេទ',
             'plural'   => 'ប្រភេទ',
@@ -55,7 +59,13 @@ return [
             'plural'   => 'អ្នកប្រើប្រាស់',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'ការពិពណ៌នា',
+        'dimensions'   => 'ទំហំរូបភាពតូច',
+        'sort_order'   => 'លំដាប់',
+    ],
     'menu_items' => [
+        'galleries'    => 'វិចិត្រសាល',
         'bread'        => 'ប្រ៊ដ',
         'categories'   => 'ប្រភេទ',
         'compass'      => 'ត្រីវិស័យ',

@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'نوێکراوەتەو لە',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Galerî',
+            'plural'   => 'Galerî',
+        ],
         'category' => [
             'singular' => 'بەش',
             'plural'   => 'بەشەکان',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'بەکارهێنەرەکان',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Danasîn',
+        'dimensions'   => 'Mezinahiya wêneyê',
+        'sort_order'   => 'Rêz',
+    ],
     'menu_items' => [
+        'galleries'    => 'Galerî',
         'bread'        => 'برێد',
         'categories'   => 'بەشەکان',
         'compass'      => 'قیبلەنما',

@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Upraveno',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Galerie',
+            'plural'   => 'Galerie',
+        ],
         'category' => [
             'singular' => 'Kategorie',
             'plural'   => 'Kategorie',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Uživatelé',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Popis',
+        'dimensions'   => 'Velikost náhledu',
+        'sort_order'   => 'Pořadí',
+    ],
     'menu_items' => [
+        'galleries'    => 'Galerie',
         'bread'        => 'BREAD',
         'categories'   => 'Kategorie',
         'compass'      => 'Kompas',

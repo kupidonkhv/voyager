@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Updated At',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Galleri',
+            'plural'   => 'Gallerier',
+        ],
         'category' => [
             'singular'  => 'Kategori',
             'plural'    => 'Kategorier',
@@ -54,7 +58,13 @@ return [
             'plural'    => 'Användare',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Beskrivning',
+        'dimensions'   => 'Miniatyrstorlek',
+        'sort_order'   => 'Sorteringsordning',
+    ],
     'menu_items' => [
+        'galleries'    => 'Gallerier',
         'categories'    => 'Kategorier',
         'compass'       => 'Kompass',
         'dashboard'     => 'Skrivbord',

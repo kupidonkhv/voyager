@@ -30,6 +30,7 @@ use TCG\Voyager\Policies\SettingPolicy;
 use TCG\Voyager\Providers\VoyagerDummyServiceProvider;
 use TCG\Voyager\Providers\VoyagerEventServiceProvider;
 use TCG\Voyager\Seed;
+use TCG\Voyager\Support\GalleryRenderer;
 use TCG\Voyager\Translator\Collection as TranslatorCollection;
 
 class VoyagerServiceProvider extends ServiceProvider
@@ -133,6 +134,7 @@ class VoyagerServiceProvider extends ServiceProvider
         });
 
         $this->bootTranslatorCollectionMacros();
+        $this->bootGalleryMacro();
 
         if (method_exists('Paginator', 'useBootstrap')) {
             Paginator::useBootstrap();
@@ -240,6 +242,17 @@ class VoyagerServiceProvider extends ServiceProvider
             }
 
             return new TranslatorCollection($transtors);
+        });
+    }
+
+    protected function bootGalleryMacro()
+    {
+        if (Str::hasMacro('parseGalleries')) {
+            return;
+        }
+
+        Str::macro('parseGalleries', function (string $body): string {
+            return app(GalleryRenderer::class)->render($body);
         });
     }
 
@@ -370,6 +383,7 @@ class VoyagerServiceProvider extends ServiceProvider
     private function registerConsoleCommands()
     {
         $this->commands(Commands\InstallCommand::class);
+        $this->commands(Commands\GalleryInstallCommand::class);
         $this->commands(Commands\ControllersCommand::class);
         $this->commands(Commands\AdminCommand::class);
     }

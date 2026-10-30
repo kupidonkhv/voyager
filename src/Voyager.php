@@ -21,6 +21,7 @@ use TCG\Voyager\FormFields\HandlerInterface;
 use TCG\Voyager\Models\Category;
 use TCG\Voyager\Models\DataRow;
 use TCG\Voyager\Models\DataType;
+use TCG\Voyager\Models\Gallery;
 use TCG\Voyager\Models\Menu;
 use TCG\Voyager\Models\MenuItem;
 use TCG\Voyager\Models\Page;
@@ -61,6 +62,7 @@ class Voyager
         'Category'    => Category::class,
         'DataRow'     => DataRow::class,
         'DataType'    => DataType::class,
+        'Gallery'     => Gallery::class,
         'Menu'        => Menu::class,
         'MenuItem'    => MenuItem::class,
         'Page'        => Page::class,

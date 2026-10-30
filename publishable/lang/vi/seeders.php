@@ -29,6 +29,10 @@ return [
         'updated_at'       => 'Updated At',
     ],
     'data_types' => [
+        'gallery'     => [
+            'singular' => 'Thư viện ảnh',
+            'plural'   => 'Thư viện ảnh',
+        ],
         'category' => [
             'singular' => 'Category',
             'plural'   => 'Categories',
@@ -54,7 +58,13 @@ return [
             'plural'   => 'Users',
         ],
     ],
+    'gallery'    => [
+        'description'  => 'Mô tả',
+        'dimensions'   => 'Kích thước ảnh thu nhỏ',
+        'sort_order'   => 'Thứ tự',
+    ],
     'menu_items' => [
+        'galleries'    => 'Thư viện ảnh',
         'bread'        => 'BREAD',
         'categories'   => 'Categories',
         'compass'      => 'Compass',
