@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image;
+use TCG\Voyager\Support\Image as VoyagerImage;
 use TCG\Voyager\Events\MediaFileAdded;
 use TCG\Voyager\Facades\Voyager;
 
@@ -269,7 +269,7 @@ class VoyagerMediaController extends Controller
             ];
             if (in_array($request->file->getMimeType(), $imageMimeTypes)) {
                 $content = Storage::disk($this->filesystem)->get($file);
-                $image = Image::read($content);
+                $image = VoyagerImage::read($content);
 
                 if ($request->file->getClientOriginalExtension() == 'gif') {
                     copy($request->file->getRealPath(), $realPath.$file);
@@ -279,34 +279,26 @@ class VoyagerMediaController extends Controller
                     if (property_exists($details, 'thumbnails') && is_array($details->thumbnails)) {
                         foreach ($details->thumbnails as $thumbnail_data) {
                             $type = $thumbnail_data->type ?? 'fit';
-                            $thumbnail = $image->clone();
+                            $thumbnail = clone $image;
                             if ($type == 'fit') {
-                                $thumbnail = $thumbnail->fit(
+                                $thumbnail = VoyagerImage::fit(
+                                    $thumbnail,
                                     $thumbnail_data->width,
                                     ($thumbnail_data->height ?? null),
-                                    function ($constraint) {
-                                        $constraint->aspectRatio();
-                                    },
                                     ($thumbnail_data->position ?? 'center')
                                 );
                             } elseif ($type == 'crop') {
-                                $thumbnail = $thumbnail->crop(
+                                $thumbnail = VoyagerImage::crop(
+                                    $thumbnail,
                                     $thumbnail_data->width,
                                     $thumbnail_data->height,
                                     ($thumbnail_data->x ?? null),
                                     ($thumbnail_data->y ?? null)
                                 );
                             } elseif ($type == 'resize') {
-                                $thumbnail = $thumbnail->resize(
-                                    $thumbnail_data->width,
-                                    ($thumbnail_data->height ?? null),
-                                    function ($constraint) use ($thumbnail_data) {
-                                        $constraint->aspectRatio();
-                                        if (!($thumbnail_data->upsize ?? true)) {
-                                            $constraint->upsize();
-                                        }
-                                    }
-                                );
+                                $thumbnail = ($thumbnail_data->upsize ?? true)
+                                    ? $thumbnail->scale($thumbnail_data->width, ($thumbnail_data->height ?? null))
+                                    : $thumbnail->scaleDown($thumbnail_data->width, ($thumbnail_data->height ?? null));
                             }
                             if (
                                 property_exists($details, 'watermark') &&
@@ -317,14 +309,14 @@ class VoyagerMediaController extends Controller
                                 $thumbnail = $this->addWatermarkToImage($thumbnail, $details->watermark);
                             }
                             $thumbnail_file = $request->upload_path.$name.'-'.($thumbnail_data->name ?? 'thumbnail').'.'.$extension;
-                            Storage::disk($this->filesystem)->put($thumbnail_file, $thumbnail->encode($extension, ($details->quality ?? 90))->encoded);
+                            Storage::disk($this->filesystem)->put($thumbnail_file, VoyagerImage::encode($thumbnail, $extension, ($details->quality ?? 90))->toString());
                         }
                     }
                     // Add watermark to image
                     if (property_exists($details, 'watermark') && property_exists($details->watermark, 'source')) {
                         $image = $this->addWatermarkToImage($image, $details->watermark);
                     }
-                    Storage::disk($this->filesystem)->put($file, $image->encode($extension, ($details->quality ?? 90))->encoded);
+                    Storage::disk($this->filesystem)->put($file, VoyagerImage::encode($image, $extension, ($details->quality ?? 90))->toString());
                 }
             }
 
@@ -370,8 +362,8 @@ class VoyagerMediaController extends Controller
             }
 
             $content = Storage::disk($this->filesystem)->get($originImagePath);
-            $image = Image::read($content)->crop($width, $height, $x, $y);
-            Storage::disk($this->filesystem)->put($destImagePath, $image->encode()->encoded);
+            $image = VoyagerImage::crop(VoyagerImage::read($content), $width, $height, $x, $y);
+            Storage::disk($this->filesystem)->put($destImagePath, VoyagerImage::encode($image, pathinfo($originImagePath, PATHINFO_EXTENSION))->toString());
 
             $success = true;
             $message = __('voyager::media.success_crop_image');
@@ -385,14 +377,13 @@ class VoyagerMediaController extends Controller
 
     private function addWatermarkToImage($image, $options)
     {
-        $watermark = Image::read(Storage::disk($this->filesystem)->path($options->source));
+        $watermark = VoyagerImage::read(Storage::disk($this->filesystem)->path($options->source));
         // Resize watermark
         $width = $image->width() * (($options->size ?? 15) / 100);
-        $watermark->resize($width, null, function ($constraint) {
-            $constraint->aspectRatio();
-        });
+        $watermark->scale($width);
 
-        return $image->insert(
+        return VoyagerImage::place(
+            $image,
             $watermark,
             ($options->position ?? 'top-left'),
             ($options->x ?? 0),

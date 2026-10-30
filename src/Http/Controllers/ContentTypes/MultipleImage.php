@@ -5,8 +5,7 @@ namespace TCG\Voyager\Http\Controllers\ContentTypes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
+use TCG\Voyager\Support\Image as VoyagerImage;
 
 
 class MultipleImage extends BaseType
@@ -28,8 +27,7 @@ class MultipleImage extends BaseType
                 continue;
             }
 
-            $manager = new ImageManager(new Driver());
-            $image = $manager->read($file->getPathname())->orient();
+            $image = VoyagerImage::read($file->getPathname())->orient();
 
             $resize_width = null;
             $resize_height = null;
@@ -63,7 +61,7 @@ class MultipleImage extends BaseType
             array_push($filesPath, $path.$filename.'.'.$file->getClientOriginalExtension());
             $filePath = $path.$filename.'.'.$file->getClientOriginalExtension();
 
-            $image = $image->resize($resize_width, $resize_height)->encodeByExtension($file->getClientOriginalExtension(), $resize_quality);
+            $image = VoyagerImage::encode($image->resize($resize_width, $resize_height), $file->getClientOriginalExtension(), $resize_quality);
 
             Storage::disk(config('voyager.storage.disk'))->put($filePath, (string) $image, 'public');
 
@@ -83,7 +81,7 @@ class MultipleImage extends BaseType
                         }
 
                         // Create a new image instance for thumbnails to avoid using encoded image
-                        $thumb_image = $manager->read($file->getPathname());
+                        $thumb_image = VoyagerImage::read($file->getPathname());
                         
                         // Ensure both dimensions are set and greater than 0 for thumbnails
                         if (!$thumb_resize_width || $thumb_resize_width <= 0) {
@@ -93,17 +91,19 @@ class MultipleImage extends BaseType
                             $thumb_resize_height = $thumb_image->height();
                         }
                         
-                        $thumb_image = $thumb_image
-                            ->orient()
-                            ->resize($thumb_resize_width, $thumb_resize_height)
-                            ->encodeByExtension($file->getClientOriginalExtension(), $resize_quality);
+                        $thumb_image = VoyagerImage::encode(
+                            $thumb_image->orient()->resize($thumb_resize_width, $thumb_resize_height),
+                            $file->getClientOriginalExtension(),
+                            $resize_quality
+                        );
                     } elseif (isset($this->options->thumbnails) && isset($thumbnails->crop->width) && isset($thumbnails->crop->height)) {
                         $crop_width = $thumbnails->crop->width;
                         $crop_height = $thumbnails->crop->height;
-                        $thumb_image = $manager->read($file->getPathname())
-                            ->orient()
-                            ->resize($crop_width, $crop_height)
-                            ->encodeByExtension($file->getClientOriginalExtension(), $resize_quality);
+                        $thumb_image = VoyagerImage::encode(
+                            VoyagerImage::read($file->getPathname())->orient()->resize($crop_width, $crop_height),
+                            $file->getClientOriginalExtension(),
+                            $resize_quality
+                        );
                     }
 
                     Storage::disk(config('voyager.storage.disk'))->put(

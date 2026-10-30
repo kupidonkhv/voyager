@@ -16,6 +16,9 @@ abstract class Type
     protected static $customTypeOptions = [];
     protected static $typeCategories = [];
 
+    public $customOptions = [];
+    public $tableName;
+
     public const NAME = 'UNDEFINED_TYPE_NAME';
     public const NOT_SUPPORTED = 'notSupported';
     public const NOT_SUPPORT_INDEX = 'notSupportIndex';

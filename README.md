@@ -5,20 +5,27 @@
 
 ### 🚀 Новые возможности и обновления
 
-**Поддержка Laravel 12:**
-- Полная совместимость с Laravel 12.28.1
-- Обновлены зависимости для работы с современными версиями PHP
-- Исправлены проблемы с миграциями
+**Поддержка Laravel 13:**
+- Полная совместимость с Laravel 13.x (проверено на Laravel 13.39.0)
+- Поддержка PHP 8.2, 8.3 и 8.4
+- Совместимость с Intervention Image 3.7+ и 4.x, включая image-расширение Laravel 13
+- Работа со схемой и интроспекцией БД без Doctrine DBAL, включая SQLite
+- Обновлены Artisan-команды, Compass, MakeModel и тесты под Laravel 13 / PHPUnit 12
+- Сохранена совместимость с Laravel 10, 11 и 12
 
 **Основные изменения:**
-- Удалены устаревшие методы Doctrine из миграций
+- Удалены устаревшие методы Doctrine из миграций и работы со схемой
 - Обновлены версии зависимостей в composer.json
-- Улучшена совместимость с современными версиями PHP 8.2+
+- Исправлены неявно nullable-параметры для PHP 8.4
+- Добавлен слой совместимости Intervention Image 3/4
 
-**Установка для Laravel 12:**
+**Установка для Laravel 13:**
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.1
+composer require kupidonkhv/voyager-fork:^1.7.44
 ```
+
+> Если Packagist ещё не проиндексировал новый релиз, подождите несколько минут или установите ветку разработки:
+> `composer require kupidonkhv/voyager-fork:dev-1.7`
 
 Voyager остается отличным выбором для быстрого создания административных панелей с поддержкой BREAD системы!
 
@@ -37,7 +44,7 @@ View the Voyager Cheat Sheet: https://voyager-cheatsheet.ulties.com/
 
 <hr>
 
-Laravel Admin & BREAD System (Browse, Read, Edit, Add, & Delete), supporting Laravel 10, 11, and 12!
+Laravel Admin & BREAD System (Browse, Read, Edit, Add, & Delete), supporting Laravel 10, 11, 12, and 13!
 
 > Looking for older Laravel versions?
 > - Laravel 8-9: Use Voyager 1.6.x
@@ -53,11 +60,11 @@ After creating your new Laravel application you can include the Voyager package 
 composer require kupidonkhv/voyager-fork
 ```
 
-> **Поддержка Laravel 10, 11, 12:**
-> Текущая версия Voyager полностью совместима с Laravel 10, 11 и 12. Для установки используйте:
+> **Поддержка Laravel 10, 11, 12, 13:**
+> Текущая версия Voyager полностью совместима с Laravel 10, 11, 12 и 13. Для установки используйте:
 
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.1
+composer require kupidonkhv/voyager-fork:^1.7.44
 ```
 
 ### 2. Add the DB Credentials & APP_URL

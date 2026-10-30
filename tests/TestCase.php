@@ -53,9 +53,7 @@ class TestCase extends OrchestraTestCase
 
     public function tearDown(): void
     {
-        //parent::tearDown();
-
-        //$this->artisan('migrate:reset');
+        parent::tearDown();
     }
 
     /**

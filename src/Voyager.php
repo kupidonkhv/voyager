@@ -3,6 +3,7 @@
 namespace TCG\Voyager;
 
 use Arrilot\Widgets\Facade as Widget;
+use Composer\InstalledVersions;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
@@ -35,6 +36,11 @@ class Voyager
 {
     protected $version;
     protected $filesystem;
+
+    protected const PACKAGE_NAMES = [
+        'kupidonkhv/voyager-fork',
+        'tcg/voyager',
+    ];
 
     protected $alerts = [];
     protected $alertsCollected = false;
@@ -299,20 +305,86 @@ class Voyager
             return;
         }
 
+        if (class_exists(InstalledVersions::class)) {
+            foreach (static::PACKAGE_NAMES as $packageName) {
+                if (InstalledVersions::isInstalled($packageName)) {
+                    $this->version = InstalledVersions::getPrettyVersion($packageName);
+
+                    if (!empty($this->version)) {
+                        return;
+                    }
+                }
+            }
+        }
+
         if ($this->filesystem->exists(base_path('composer.lock'))) {
-            // Get the composer.lock file
             $file = json_decode(
                 $this->filesystem->get(base_path('composer.lock'))
             );
 
-            // Loop through all the packages and get the version of voyager
-            foreach ($file->packages as $package) {
-                if ($package->name == 'tcg/voyager') {
+            $packages = array_merge($file->packages ?? [], $file->{'packages-dev'} ?? []);
+
+            foreach ($packages as $package) {
+                if (in_array($package->name, static::PACKAGE_NAMES, true)) {
                     $this->version = $package->version;
                     break;
                 }
             }
         }
+    }
+
+    /**
+     * Convert a strftime-style format (still used by older BREAD settings)
+     * into a PHP date format understood by Carbon 3.
+     */
+    public static function dateFormat($format)
+    {
+        if (!is_string($format) || strpos($format, '%') === false) {
+            return $format;
+        }
+
+        return strtr($format, [
+            '%F' => 'Y-m-d',
+            '%T' => 'H:i:s',
+            '%D' => 'm/d/y',
+            '%R' => 'H:i',
+            '%c' => 'D M j H:i:s Y',
+            '%x' => 'm/d/y',
+            '%X' => 'H:i:s',
+            '%Y' => 'Y',
+            '%y' => 'y',
+            '%m' => 'm',
+            '%d' => 'd',
+            '%e' => 'j',
+            '%H' => 'H',
+            '%I' => 'h',
+            '%M' => 'i',
+            '%S' => 's',
+            '%p' => 'A',
+            '%B' => 'F',
+            '%b' => 'M',
+            '%A' => 'l',
+            '%a' => 'D',
+            '%j' => 'z',
+            '%%' => '%',
+        ]);
+    }
+
+    public function formatDate($value, $format = null)
+    {
+        if (is_null($value)) {
+            return $value;
+        }
+
+        $date = $value instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($value)
+            : \Carbon\Carbon::parse($value);
+
+        if (empty($format)) {
+            return $date;
+        }
+
+        return $date->locale(app()->getLocale())->translatedFormat(static::dateFormat($format));
     }
 
     /**

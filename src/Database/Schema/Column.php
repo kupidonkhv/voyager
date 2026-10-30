@@ -27,38 +27,56 @@ class Column
         $this->options = $options;
     }
 
-    public static function make(array $column, string $tableName = null)
+    public static function make(array $column, ?string $tableName = null)
     {
         $name = Identifier::validate($column['name'], 'Column');
         $type = $column['type'];
-        
-        // For Laravel 12 compatibility, use our custom Type system
+
         if (is_array($type)) {
-            $typeName = trim($type['name']);
-            $typeObj = Type::getType($typeName);
-            if (!$typeObj) {
-                throw new \RuntimeException("Type {$typeName} not found");
-            }
-            $type = $typeObj;
-        } elseif (is_string($type)) {
-            // Handle string type names
-            $typeObj = Type::getType($type);
-            if (!$typeObj) {
-                // Debug: log what type we're trying to find
-                file_put_contents(storage_path('logs/voyager_debug.log'), 
-                    "DEBUG: Trying to find type: '{$type}'\n", FILE_APPEND);
-                throw new \RuntimeException("Type {$type} not found");
-            }
-            $type = $typeObj;
-        }
-        
-        if (is_object($type)) {
-            $type->tableName = $tableName;
+            $type = $type['name'] ?? '';
         }
 
-        $options = array_diff_key($column, array_flip(['name', 'composite', 'oldName', 'null', 'extra', 'type', 'charset', 'collation']));
+        $typeObj = Type::getType(trim($type));
+        if (!$typeObj) {
+            throw new \RuntimeException("Type {$type} not found");
+        }
 
-        return new self($name, $type, $options);
+        $typeObj->tableName = $tableName;
+
+        $options = array_diff_key($column, array_flip([
+            'name', 'composite', 'oldName', 'type', 'type_name', 'null', 'nullable', 'generation',
+        ]));
+
+        // Normalize Laravel schema introspection keys into Voyager option names.
+        if (!array_key_exists('notnull', $options)) {
+            $options['notnull'] = array_key_exists('null', $column)
+                ? strtoupper((string) $column['null']) === 'NO'
+                : !($column['nullable'] ?? false);
+        }
+
+        if (array_key_exists('auto_increment', $column) && !array_key_exists('autoincrement', $options)) {
+            $options['autoincrement'] = (bool) $column['auto_increment'];
+        }
+
+        unset($options['auto_increment']);
+
+        if (isset($options['default']) && is_string($options['default'])) {
+            $options['default'] = static::unquoteDefault($options['default']);
+        }
+
+        return new self($name, $typeObj, $options);
+    }
+
+    /**
+     * SQLite reports string defaults including their SQL quotes.
+     */
+    protected static function unquoteDefault($default)
+    {
+        if (strlen($default) >= 2 && $default[0] === "'" && substr($default, -1) === "'") {
+            return str_replace("''", "'", substr($default, 1, -1));
+        }
+
+        return $default;
     }
 
     public function getName()
@@ -78,12 +96,22 @@ class Column
 
     public function getAutoincrement()
     {
-        return $this->options['autoincrement'] ?? false;
+        return (bool) ($this->options['autoincrement'] ?? false);
     }
 
     public function getNotnull()
     {
-        return !($this->options['notnull'] ?? true);
+        return (bool) ($this->options['notnull'] ?? false);
+    }
+
+    public function getDefault()
+    {
+        return $this->options['default'] ?? null;
+    }
+
+    public function getLength()
+    {
+        return $this->options['length'] ?? null;
     }
 
     /**

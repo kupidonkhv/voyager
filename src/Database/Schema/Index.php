@@ -17,24 +17,18 @@ abstract class Index
             $columns = [$columns];
         }
 
-        if (isset($index['type'])) {
-            $type = $index['type'];
+        $isPrimary = (bool) ($index['is_primary'] ?? $index['isPrimary'] ?? $index['primary'] ?? false);
+        $isUnique = (bool) ($index['is_unique'] ?? $index['isUnique'] ?? $index['unique'] ?? false);
 
-            $isPrimary = ($type == static::PRIMARY);
-            $isUnique = $isPrimary || ($type == static::UNIQUE);
-        } else {
-            $isPrimary = $index['is_primary'] ?? $index['isPrimary'] ?? false;
-            $isUnique = $index['is_unique'] ?? $index['isUnique'] ?? false;
+        $type = $index['type'] ?? null;
 
-            // Set the type
-            if ($isPrimary) {
-                $type = static::PRIMARY;
-            } elseif ($isUnique) {
-                $type = static::UNIQUE;
-            } else {
-                $type = static::INDEX;
-            }
+        if ($type === static::PRIMARY) {
+            $isPrimary = $isUnique = true;
+        } elseif ($type === static::UNIQUE) {
+            $isUnique = true;
         }
+
+        $type = $isPrimary ? static::PRIMARY : ($isUnique ? static::UNIQUE : static::INDEX);
 
         // Set the name
         $name = trim($index['name'] ?? '');
@@ -59,51 +53,62 @@ abstract class Index
         if (is_array($index)) {
             $name = $index['name'] ?? '';
             $columns = $index['columns'] ?? [];
+            $type = static::getType($index);
 
             return [
                 'name'        => $name,
                 'oldName'     => $name,
                 'columns'     => $columns,
-                'type'        => static::getType($index),
-                'isPrimary'   => $index['is_primary'] ?? false,
-                'isUnique'    => $index['is_unique'] ?? false,
+                'type'        => $type,
+                'isPrimary'   => $type === static::PRIMARY,
+                'isUnique'    => $type === static::UNIQUE,
                 'isComposite' => count($columns) > 1,
                 'flags'       => $index['flags'] ?? [],
                 'options'     => $index['options'] ?? [],
             ];
-        } else {
-            // Handle IndexObject
-            return [
-                'name'        => $index->getName(),
-                'oldName'     => $index->getName(),
-                'columns'     => $index->getColumns(),
-                'type'        => $index->isPrimary() ? static::PRIMARY : ($index->isUnique() ? static::UNIQUE : static::INDEX),
-                'isPrimary'   => $index->isPrimary(),
-                'isUnique'    => $index->isUnique(),
-                'isComposite' => count($index->getColumns()) > 1,
-                'flags'       => $index->getFlags(),
-                'options'     => $index->getOptions(),
-            ];
         }
+
+        // Handle IndexObject
+        return [
+            'name'        => $index->getName(),
+            'oldName'     => $index->getName(),
+            'columns'     => $index->getColumns(),
+            'type'        => $index->isPrimary() ? static::PRIMARY : ($index->isUnique() ? static::UNIQUE : static::INDEX),
+            'isPrimary'   => $index->isPrimary(),
+            'isUnique'    => $index->isUnique(),
+            'isComposite' => count($index->getColumns()) > 1,
+            'flags'       => $index->getFlags(),
+            'options'     => $index->getOptions(),
+        ];
     }
 
     public static function getType($index)
     {
-        // Handle IndexObject
-        if (is_object($index) && method_exists($index, 'isPrimary') && $index->isPrimary()) {
-            return static::PRIMARY;
-        } elseif (is_object($index) && method_exists($index, 'isUnique') && $index->isUnique()) {
-            return static::UNIQUE;
-        }
-        
-        // Handle array
-        if (isset($index['is_primary']) && $index['is_primary']) {
-            return static::PRIMARY;
-        } elseif (isset($index['is_unique']) && $index['is_unique']) {
-            return static::UNIQUE;
-        } else {
+        if (is_object($index)) {
+            if (method_exists($index, 'isPrimary') && $index->isPrimary()) {
+                return static::PRIMARY;
+            }
+
+            if (method_exists($index, 'isUnique') && $index->isUnique()) {
+                return static::UNIQUE;
+            }
+
             return static::INDEX;
         }
+
+        $type = $index['type'] ?? null;
+
+        $isPrimary = (bool) ($index['is_primary'] ?? $index['isPrimary'] ?? $index['primary'] ?? false)
+            || $type === static::PRIMARY;
+
+        $isUnique = (bool) ($index['is_unique'] ?? $index['isUnique'] ?? $index['unique'] ?? false)
+            || $type === static::UNIQUE;
+
+        if ($isPrimary) {
+            return static::PRIMARY;
+        }
+
+        return $isUnique ? static::UNIQUE : static::INDEX;
     }
 
     /**

@@ -53,13 +53,7 @@ class Menu extends Model
     public static function display($menuName, $type = null, array $options = [])
     {
         // GET THE MENU - sort collection in blade
-        $menu = \Cache::remember('voyager_menu_'.$menuName, \Carbon\Carbon::now()->addDays(30), function () use ($menuName) {
-            return static::where('name', '=', $menuName)
-            ->with(['parent_items.children' => function ($q) {
-                $q->orderBy('order');
-            }])
-            ->first();
-        });
+        $menu = static::getCachedMenu($menuName);
 
         // Check for Menu Existence
         if (!isset($menu)) {
@@ -103,6 +97,34 @@ class Menu extends Model
     public function removeMenuFromCache()
     {
         \Cache::forget('voyager_menu_'.$this->name);
+    }
+
+    protected static function getCachedMenu($menuName)
+    {
+        $query = function () use ($menuName) {
+            return static::where('name', '=', $menuName)
+                ->with(['parent_items.children' => function ($q) {
+                    $q->orderBy('order');
+                }])
+                ->first();
+        };
+
+        if (!static::cacheCanStoreModels()) {
+            return $query();
+        }
+
+        return \Cache::remember('voyager_menu_'.$menuName, \Carbon\Carbon::now()->addDays(30), $query);
+    }
+
+    /**
+     * Laravel 13 can restrict cache unserialization to an explicit class
+     * allow-list. Only cache the Eloquent model graph when that list is open.
+     */
+    protected static function cacheCanStoreModels()
+    {
+        $allowed = config('cache.serializable_classes');
+
+        return $allowed === null || $allowed === true;
     }
 
     protected static function processItems($items)

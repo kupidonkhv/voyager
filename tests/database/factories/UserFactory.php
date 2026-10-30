@@ -18,6 +18,8 @@ class UserFactory extends Factory
             'email'          => $this->faker->unique()->safeEmail(),
             'password'       => $password ?: $password = bcrypt('secret'),
             'remember_token' => Str::random(10),
+            'role_id'        => fn () => \TCG\Voyager\Models\Role::query()->where('name', 'user')->value('id')
+                ?? \TCG\Voyager\Models\Role::query()->value('id'),
         ];
     }
 }

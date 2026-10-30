@@ -23,18 +23,10 @@ class VoyagerBreadController extends Controller
 
         $dataTypes = Voyager::model('DataType')->select('id', 'name', 'slug')->get()->keyBy('name')->toArray();
 
-        // Get tables only from current database
-        $currentDb = DB::getDatabaseName();
-        $tablesFromDb = DB::select("
-            SELECT TABLE_NAME as name 
-            FROM information_schema.tables 
-            WHERE table_schema = ? 
-            AND table_type = 'BASE TABLE'
-            ORDER BY TABLE_NAME
-        ", [$currentDb]);
+        $tablesFromDb = SchemaManager::listTableNames();
 
-        $tables = array_map(function ($tableInfo) use ($dataTypes) {
-            $tableName = Str::replaceFirst(DB::getTablePrefix(), '', $tableInfo->name);
+        $tables = array_map(function ($tableName) use ($dataTypes) {
+            $tableName = Str::replaceFirst(DB::getTablePrefix(), '', $tableName);
 
             $table = [
                 'prefix'     => DB::getTablePrefix(),

@@ -2,7 +2,7 @@
 
 namespace TCG\Voyager\Tests;
 
-use Doctrine\DBAL\Schema\SchemaException;
+use TCG\Voyager\Database\Schema\SchemaException;
 use Illuminate\Support\Facades\Auth;
 use TCG\Voyager\Database\Schema\SchemaManager;
 use TCG\Voyager\Database\Schema\Table;
@@ -62,7 +62,9 @@ class DatabaseTest extends TestCase
         $details = $dbTable->getColumn('details');
         // Column Type
         $this->assertEquals('integer', $id->getType()->getName());
-        $this->assertEquals('json', $details->getType()->getName());
+        // SQLite has no native JSON column type and stores it as text.
+        $jsonType = SchemaManager::getDatabasePlatformName() === 'sqlite' ? 'text' : 'json';
+        $this->assertEquals($jsonType, $details->getType()->getName());
         // Column auto increment
         $this->assertTrue($id->getAutoIncrement());
         // Column not null

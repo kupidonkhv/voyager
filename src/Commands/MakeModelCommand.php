@@ -15,6 +15,14 @@ class MakeModelCommand extends ModelMakeCommand
     protected $name = 'voyager:make:model';
 
     /**
+     * Laravel 13 defines a signature on ModelMakeCommand, which would rename
+     * this command to `make:model` and hide the Voyager-specific options.
+     *
+     * @var string|null
+     */
+    protected $signature;
+
+    /**
      * The console command description.
      *
      * @var string

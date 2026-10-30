@@ -43,7 +43,86 @@ class Table
     public function setPrimaryKey($columns, $name = 'primary')
     {
         $this->primaryKeyName = $name;
+
+        $this->indexes[$name] = Index::make([
+            'name'    => $name,
+            'columns' => (array) $columns,
+            'type'    => Index::PRIMARY,
+        ]);
+
         return $this;
+    }
+
+    public function hasColumn($name)
+    {
+        return isset($this->columns[$name]);
+    }
+
+    public function getColumn($name)
+    {
+        if (!isset($this->columns[$name])) {
+            throw new \InvalidArgumentException("Column {$name} does not exist");
+        }
+
+        return $this->columns[$name];
+    }
+
+    public function hasIndex($name)
+    {
+        return isset($this->indexes[$name]);
+    }
+
+    public function getIndex($name)
+    {
+        if (!isset($this->indexes[$name])) {
+            throw new \InvalidArgumentException("Index {$name} does not exist");
+        }
+
+        return $this->indexes[$name];
+    }
+
+    public function addIndex($columns, $name = null, $flags = [], $options = [])
+    {
+        return $this->addIndexOfType($columns, $name, Index::INDEX, $flags, $options);
+    }
+
+    public function addUniqueIndex($columns, $name = null, $flags = [], $options = [])
+    {
+        return $this->addIndexOfType($columns, $name, Index::UNIQUE, $flags, $options);
+    }
+
+    protected function addIndexOfType($columns, $name, $type, $flags = [], $options = [])
+    {
+        $columns = (array) $columns;
+
+        if (empty($name)) {
+            $name = Index::createName($columns, $type, $this->name);
+        }
+
+        $this->indexes[$name] = Index::make([
+            'name'    => $name,
+            'columns' => $columns,
+            'type'    => $type,
+            'flags'   => $flags,
+            'options' => $options,
+        ]);
+
+        return $this;
+    }
+
+    public function getPrimaryKey()
+    {
+        if ($this->primaryKeyName && isset($this->indexes[$this->primaryKeyName])) {
+            return $this->indexes[$this->primaryKeyName];
+        }
+
+        foreach ($this->indexes as $index) {
+            if ($index->isPrimary()) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     public static function make($table)
@@ -61,20 +140,23 @@ class Table
         }
 
         $indexes = [];
-        foreach ($table['indexes'] as $indexArr) {
+        foreach ($table['indexes'] ?? [] as $indexArr) {
             $index = Index::make($indexArr);
             $indexes[$index->getName()] = $index;
         }
 
         $foreignKeys = [];
-        foreach ($table['foreignKeys'] as $foreignKeyArr) {
+        foreach ($table['foreignKeys'] ?? [] as $foreignKeyArr) {
             $foreignKey = ForeignKey::make($foreignKeyArr);
             $foreignKeys[$foreignKey->getName()] = $foreignKey;
         }
 
-        $options = $table['options'];
+        $options = $table['options'] ?? [];
 
-        return new self($name, $columns, $indexes, $foreignKeys, $options);
+        $instance = new self($name, $columns, $indexes, $foreignKeys, $options);
+        $instance->primaryKeyName = $table['primaryKeyName'] ?? null;
+
+        return $instance;
     }
 
     public function getName()
