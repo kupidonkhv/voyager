@@ -3,8 +3,10 @@
 namespace TCG\Voyager\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use TCG\Voyager\Activity\ActivityDiff;
 use TCG\Voyager\Facades\Voyager;
 
 class VoyagerSettingsController extends Controller
@@ -69,14 +71,36 @@ class VoyagerSettingsController extends Controller
         $request->merge(['value' => '']);
         $request->merge(['key' => $key]);
 
-        Voyager::model('Setting')->create($request->except('setting_tab'));
+        try {
+            return DB::transaction(function () use ($request) {
+                $setting = Voyager::model('Setting')->create($request->except('setting_tab'));
 
-        request()->flashOnly('setting_tab');
+                $this->activity()->recordEventSafe(
+                    'setting.created',
+                    'success',
+                    $setting,
+                    'settings',
+                    [],
+                    ['key' => $setting->key],
+                    'setting',
+                    (string) $setting->getKey()
+                );
 
-        return back()->with([
-            'message'    => __('voyager::settings.successfully_created'),
-            'alert-type' => 'success',
-        ]);
+                request()->flashOnly('setting_tab');
+
+                return back()->with([
+                    'message'    => __('voyager::settings.successfully_created'),
+                    'alert-type' => 'success',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
+            ]);
+        }
     }
 
     public function update(Request $request)
@@ -86,48 +110,76 @@ class VoyagerSettingsController extends Controller
 
         $settings = Voyager::model('Setting')->all();
 
-        foreach ($settings as $setting) {
-            $content = $this->getContentBasedOnType($request, 'settings', (object) [
-                'type'    => $setting->type,
-                'field'   => str_replace('.', '_', $setting->key),
-                'group'   => $setting->group,
-            ], $setting->details);
+        try {
+            return DB::transaction(function () use ($request, $settings) {
+                foreach ($settings as $setting) {
+                    $before = clone $setting;
 
-            if ($setting->type == 'image' && $content == null) {
-                continue;
-            }
+                    $content = $this->getContentBasedOnType($request, 'settings', (object) [
+                        'type'    => $setting->type,
+                        'field'   => str_replace('.', '_', $setting->key),
+                        'group'   => $setting->group,
+                    ], $setting->details);
 
-            if ($setting->type == 'file' && $content == null) {
-                continue;
-            }
+                    if ($setting->type == 'image' && $content == null) {
+                        continue;
+                    }
 
-            // For multiple_images type, merge new images with existing ones
-            if ($setting->type == 'multiple_images') {
-                if ($content == null) {
-                    // If no new images uploaded, keep existing ones
-                    continue;
-                } else {
-                    // Merge new images with existing ones
-                    $existingImages = json_decode($setting->value, true) ?? [];
-                    $newImages = json_decode($content, true) ?? [];
-                    $content = json_encode(array_merge($existingImages, $newImages));
+                    if ($setting->type == 'file' && $content == null) {
+                        continue;
+                    }
+
+                    // For multiple_images type, merge new images with existing ones
+                    if ($setting->type == 'multiple_images') {
+                        if ($content == null) {
+                            // If no new images uploaded, keep existing ones
+                            continue;
+                        } else {
+                            // Merge new images with existing ones
+                            $existingImages = json_decode($setting->value, true) ?? [];
+                            $newImages = json_decode($content, true) ?? [];
+                            $content = json_encode(array_merge($existingImages, $newImages));
+                        }
+                    }
+
+                    $key = preg_replace('/^'.Str::slug($setting->group).'./i', '', $setting->key);
+
+                    $setting->group = $request->input(str_replace('.', '_', $setting->key).'_group');
+                    $setting->key = implode('.', [Str::slug($setting->group), $key]);
+                    $setting->value = $content;
+                    $setting->save();
+
+                    $changed = ActivityDiff::changedFields($before, $setting, $this->activityExcludedFields());
+
+                    if ($changed) {
+                        $this->activity()->recordEventSafe(
+                            'setting.updated',
+                            'success',
+                            $setting,
+                            'settings',
+                            $changed,
+                            ['key' => $setting->key],
+                            'setting',
+                            (string) $setting->getKey()
+                        );
+                    }
                 }
-            }
 
-            $key = preg_replace('/^'.Str::slug($setting->group).'./i', '', $setting->key);
+                request()->flashOnly('setting_tab');
 
-            $setting->group = $request->input(str_replace('.', '_', $setting->key).'_group');
-            $setting->key = implode('.', [Str::slug($setting->group), $key]);
-            $setting->value = $content;
-            $setting->save();
+                return back()->with([
+                    'message'    => __('voyager::settings.successfully_saved'),
+                    'alert-type' => 'success',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
+            ]);
         }
-
-        request()->flashOnly('setting_tab');
-
-        return back()->with([
-            'message'    => __('voyager::settings.successfully_saved'),
-            'alert-type' => 'success',
-        ]);
     }
 
     public function delete($id)
@@ -136,15 +188,28 @@ class VoyagerSettingsController extends Controller
         $this->authorize('delete', Voyager::model('Setting'));
 
         $setting = Voyager::model('Setting')->find($id);
+        abort_if(!$setting, 404);
 
-        Voyager::model('Setting')->destroy($id);
+        try {
+            return DB::transaction(function () use ($id, $setting) {
+                Voyager::model('Setting')->destroy($id);
+                $this->recordSettingEvent('setting.deleted', $setting);
 
-        request()->session()->flash('setting_tab', $setting->group);
+                request()->session()->flash('setting_tab', $setting->group);
 
-        return back()->with([
-            'message'    => __('voyager::settings.successfully_deleted'),
-            'alert-type' => 'success',
-        ]);
+                return back()->with([
+                    'message'    => __('voyager::settings.successfully_deleted'),
+                    'alert-type' => 'success',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
+            ]);
+        }
     }
 
     public function move_up($id)
@@ -173,6 +238,9 @@ class VoyagerSettingsController extends Controller
             $previousSetting->order = $swapOrder;
             $previousSetting->save();
 
+            $this->recordSettingEvent('setting.updated', $setting, ['order']);
+            $this->recordSettingEvent('setting.updated', $previousSetting, ['order']);
+
             $data = [
                 'message'    => __('voyager::settings.moved_order_up', ['name' => $setting->display_name]),
                 'alert-type' => 'success',
@@ -200,6 +268,8 @@ class VoyagerSettingsController extends Controller
             }
             $setting->value = '';
             $setting->save();
+
+            $this->recordSettingEvent('setting.updated', $setting, ['value']);
         }
 
         request()->session()->flash('setting_tab', $setting->group);
@@ -232,6 +302,8 @@ class VoyagerSettingsController extends Controller
                 // Update the setting value
                 $setting->value = json_encode($images);
                 $setting->save();
+
+                $this->recordSettingEvent('setting.updated', $setting, ['value']);
             }
         }
 
@@ -270,6 +342,9 @@ class VoyagerSettingsController extends Controller
             $previousSetting->order = $swapOrder;
             $previousSetting->save();
 
+            $this->recordSettingEvent('setting.updated', $setting, ['order']);
+            $this->recordSettingEvent('setting.updated', $previousSetting, ['order']);
+
             $data = [
                 'message'    => __('voyager::settings.moved_order_down', ['name' => $setting->display_name]),
                 'alert-type' => 'success',
@@ -279,5 +354,23 @@ class VoyagerSettingsController extends Controller
         request()->session()->flash('setting_tab', $setting->group);
 
         return back()->with($data);
+    }
+
+    protected function recordSettingEvent(string $event, $setting, array $changedFields = []): void
+    {
+        if (!$setting) {
+            return;
+        }
+
+        $this->activity()->recordEventSafe(
+            $event,
+            'success',
+            $setting,
+            'settings',
+            $changedFields,
+            ['key' => $setting->key],
+            'setting',
+            (string) $setting->getKey()
+        );
     }
 }

@@ -67,24 +67,36 @@ class VoyagerGalleryController extends VoyagerBaseController
         $this->validateBread($request->all(), $dataType->addRows)->validate();
         $this->validateUploadedMedia($request);
 
-        /** @var Gallery $gallery */
-        $gallery = $this->insertUpdateData($request, $slug, $dataType->addRows, new Gallery());
-        $this->storeUploadedMedia($request, $gallery);
+        try {
+            return DB::transaction(function () use ($request, $slug, $dataType) {
+                /** @var Gallery $gallery */
+                $gallery = $this->insertUpdateData($request, $slug, $dataType->addRows, new Gallery());
+                $this->storeUploadedMedia($request, $gallery);
 
-        event(new BreadDataAdded($dataType, $gallery));
+                $this->activityRecordCreated($dataType, $gallery);
+                event(new BreadDataAdded($dataType, $gallery));
 
-        if (!$request->has('_tagging')) {
-            $redirect = auth()->user()->can('browse', $gallery)
-                ? redirect()->route("voyager.{$dataType->slug}.index")
-                : redirect()->back();
+                if (!$request->has('_tagging')) {
+                    $redirect = auth()->user()->can('browse', $gallery)
+                        ? redirect()->route("voyager.{$dataType->slug}.index")
+                        : redirect()->back();
 
-            return $redirect->with([
-                'message'    => __('voyager::generic.successfully_added_new')." {$dataType->getTranslatedAttribute('display_name_singular')}",
-                'alert-type' => 'success',
+                    return $redirect->with([
+                        'message'    => __('voyager::generic.successfully_added_new')." {$dataType->getTranslatedAttribute('display_name_singular')}",
+                        'alert-type' => 'success',
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'data' => $gallery]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
             ]);
         }
-
-        return response()->json(['success' => true, 'data' => $gallery]);
     }
 
     public function update(Request $request, $id)
@@ -101,19 +113,36 @@ class VoyagerGalleryController extends VoyagerBaseController
         $this->validateBread($request->all(), $dataType->editRows, $dataType->name, $id)->validate();
         $this->validateUploadedMedia($request);
 
-        $this->insertUpdateData($request, $slug, $dataType->editRows, $gallery);
-        $this->storeUploadedMedia($request, $gallery);
+        $before = clone $gallery;
+        if (method_exists($before, 'translations')) {
+            $before->loadMissing('translations');
+        }
 
-        event(new BreadDataUpdated($dataType, $gallery));
+        try {
+            return DB::transaction(function () use ($request, $slug, $dataType, $gallery, $before) {
+                $this->insertUpdateData($request, $slug, $dataType->editRows, $gallery);
+                $this->storeUploadedMedia($request, $gallery);
 
-        $redirect = auth()->user()->can('browse', app($dataType->model_name))
-            ? redirect()->route("voyager.{$dataType->slug}.index")
-            : redirect()->back();
+                $this->activityRecordUpdated($dataType, $before, $gallery);
+                event(new BreadDataUpdated($dataType, $gallery));
 
-        return $redirect->with([
-            'message'    => __('voyager::generic.successfully_updated')." {$dataType->getTranslatedAttribute('display_name_singular')}",
-            'alert-type' => 'success',
-        ]);
+                $redirect = auth()->user()->can('browse', app($dataType->model_name))
+                    ? redirect()->route("voyager.{$dataType->slug}.index")
+                    : redirect()->back();
+
+                return $redirect->with([
+                    'message'    => __('voyager::generic.successfully_updated')." {$dataType->getTranslatedAttribute('display_name_singular')}",
+                    'alert-type' => 'success',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
+            ]);
+        }
     }
 
     public function uploadMedia(Request $request, $id)
@@ -141,6 +170,12 @@ class VoyagerGalleryController extends VoyagerBaseController
         $media->order_column = ((int) $gallery->images()->max('order_column')) + 1;
         $media->save();
 
+        $this->activityRecordMedia('media.uploaded', (string) $media->getKey(), $this->getSlug($request), [
+            'disk' => $media->disk,
+            'path' => $media->getPathRelativeToRoot(),
+            'size' => $media->size,
+        ]);
+
         return response()->json([
             'success' => true,
             'media'   => $this->mediaPayload($media),
@@ -159,7 +194,16 @@ class VoyagerGalleryController extends VoyagerBaseController
             return response()->json(['success' => false, 'message' => 'Media not found'], 404);
         }
 
+        $metadata = [
+            'disk' => $media->disk,
+            'path' => $media->getPathRelativeToRoot(),
+            'size' => $media->size,
+        ];
+        $mediaId = (string) $media->getKey();
+
         $media->delete();
+
+        $this->activityRecordMedia('media.deleted', $mediaId, $this->getSlug($request), $metadata);
 
         return response()->json(['success' => true]);
     }
@@ -215,13 +259,28 @@ class VoyagerGalleryController extends VoyagerBaseController
             'media_ids.*' => 'integer',
         ]);
 
-        foreach ($request->input('media_ids', []) as $order => $mediaId) {
-            DB::table('media')
-                ->where('id', $mediaId)
-                ->where('model_id', $gallery->getKey())
-                ->where('model_type', $gallery->getMorphClass())
-                ->update(['order_column' => $order + 1]);
-        }
+        DB::transaction(function () use ($request, $gallery) {
+            $mediaIds = $request->input('media_ids', []);
+
+            foreach ($mediaIds as $order => $mediaId) {
+                DB::table('media')
+                    ->where('id', $mediaId)
+                    ->where('model_id', $gallery->getKey())
+                    ->where('model_type', $gallery->getMorphClass())
+                    ->update(['order_column' => $order + 1]);
+            }
+
+            $this->activity()->recordEventSafe(
+                'gallery.reordered',
+                'success',
+                $gallery,
+                $this->getSlug($request),
+                [],
+                ['count' => count($mediaIds)],
+                'gallery',
+                (string) $gallery->getKey()
+            );
+        });
 
         return response()->json(['success' => true]);
     }
@@ -255,6 +314,12 @@ class VoyagerGalleryController extends VoyagerBaseController
             $media = $gallery->addMedia($file)->toMediaCollection('images');
             $media->order_column = ((int) $gallery->images()->max('order_column')) + 1;
             $media->save();
+
+            $this->activityRecordMedia('media.uploaded', (string) $media->getKey(), 'galleries', [
+                'disk' => $media->disk,
+                'path' => $media->getPathRelativeToRoot(),
+                'size' => $media->size,
+            ]);
         }
     }
 

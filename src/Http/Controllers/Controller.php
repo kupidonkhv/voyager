@@ -2,13 +2,19 @@
 
 namespace TCG\Voyager\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use TCG\Voyager\Activity\ActivityDiff;
+use TCG\Voyager\Activity\ActivityRecorder;
+use TCG\Voyager\Activity\ActivitySubject;
 use TCG\Voyager\Events\FileDeleted;
 use TCG\Voyager\Http\Controllers\ContentTypes\Checkbox;
 use TCG\Voyager\Http\Controllers\ContentTypes\Coordinates;
@@ -40,6 +46,265 @@ abstract class Controller extends BaseController
         }
 
         return $slug;
+    }
+
+    protected function activity(): ActivityRecorder
+    {
+        return app(ActivityRecorder::class);
+    }
+
+    protected function activityExcludedFields(): array
+    {
+        return (array) config('voyager-activity.excluded_fields', []);
+    }
+
+    protected function activityEventName($dataType, string $action): string
+    {
+        return match ($dataType->slug) {
+            'users' => 'user.'.$action,
+            'roles' => 'role.'.$action,
+            'settings' => 'setting.'.$action,
+            'menus' => 'menu.'.$action,
+            'menu_items' => 'menu.item_'.$action,
+            'data_types' => 'bread.'.$action,
+            'galleries' => 'gallery.'.$action,
+            default => 'record.'.$action,
+        };
+    }
+
+    protected function activitySubjectType($dataType, $subject = null): ?string
+    {
+        return match ($dataType->slug) {
+            'users' => 'user',
+            'roles' => 'role',
+            'settings' => 'setting',
+            'menus' => 'menu',
+            'menu_items' => 'menu_item',
+            'data_types' => 'bread',
+            'galleries' => 'gallery',
+            default => $subject instanceof Model ? ActivitySubject::forModel($subject) : ActivitySubject::forTable($dataType->name),
+        };
+    }
+
+    protected function activityRecordCreated($dataType, Model $subject, array $metadata = []): void
+    {
+        $this->activity()->recordEventSafe(
+            $this->activityEventName($dataType, 'created'),
+            'success',
+            $subject,
+            $dataType->slug,
+            [],
+            $metadata,
+            $this->activitySubjectType($dataType, $subject),
+            (string) $subject->getKey()
+        );
+    }
+
+    protected function activityRecordUpdated($dataType, Model $before, Model $after, array $metadata = []): bool
+    {
+        $excluded = $this->activityExcludedFields();
+        $isUser = $dataType->slug === 'users';
+
+        if ($isUser) {
+            $excluded[] = 'password';
+        }
+
+        $changed = ActivityDiff::changedFields($before, $after, $excluded);
+        $translated = method_exists($before, 'translations') && method_exists($after, 'translations')
+            ? ActivityDiff::translationFields($before, $after, 'translations', $excluded)
+            : [];
+        $changed = array_values(array_unique(array_merge($changed, $translated)));
+        sort($changed, SORT_STRING);
+
+        if ($changed) {
+            $this->activity()->recordEventSafe(
+                $this->activityEventName($dataType, 'updated'),
+                'success',
+                $after,
+                $dataType->slug,
+                $changed,
+                $metadata,
+                $this->activitySubjectType($dataType, $after),
+                (string) $after->getKey()
+            );
+        }
+
+        if ($isUser && $this->activityPasswordChanged($before, $after)) {
+            $this->activity()->recordEventSafe(
+                'user.password_changed',
+                'success',
+                $after,
+                $dataType->slug,
+                ['password'],
+                [],
+                'user',
+                (string) $after->getKey()
+            );
+        }
+
+        return $changed !== [];
+    }
+
+    protected function activityRecordDeleted($dataType, Model $subject, string $action = 'deleted'): void
+    {
+        $this->activity()->recordEventSafe(
+            $this->activityEventName($dataType, $action),
+            'success',
+            $subject,
+            $dataType->slug,
+            [],
+            [],
+            $this->activitySubjectType($dataType, $subject),
+            (string) $subject->getKey()
+        );
+    }
+
+    protected function activityPasswordChanged(Model $before, Model $after): bool
+    {
+        return (string) ($before->getAttributes()['password'] ?? '') !== (string) ($after->getAttributes()['password'] ?? '');
+    }
+
+    protected function activityRelationSnapshot(Model $subject, $rows): array
+    {
+        if (!$subject->exists) {
+            return [];
+        }
+
+        $snapshot = [];
+
+        foreach ($rows as $row) {
+            if ($row->type !== 'relationship' || ($row->details->type ?? null) !== 'belongsToMany') {
+                continue;
+            }
+
+            $details = $row->details;
+            $foreign = $details->foreign_pivot_key ?? Str::snake(class_basename($subject)).'_id';
+            $related = $details->related_pivot_key ?? Str::snake(class_basename($details->model)).'_id';
+            $parentKey = $details->parent_key ?? $subject->getKeyName();
+            $relatedKey = $details->key ?? 'id';
+
+            $snapshot[$row->field] = DB::table($details->pivot_table)
+                ->where($foreign, $subject->getAttribute($parentKey))
+                ->pluck($related)
+                ->map(fn ($id) => (string) $id)
+                ->all();
+        }
+
+        return $snapshot;
+    }
+
+    protected function activityRecordRelationChanges($dataType, Model $subject, array $before, array $after): void
+    {
+        $rows = $dataType->rows->keyBy('field');
+
+        foreach ($before + $after as $field => $ids) {
+            $old = $before[$field] ?? [];
+            $new = $after[$field] ?? [];
+            $row = $rows->get($field);
+
+            if (!$row || ($row->details->type ?? null) !== 'belongsToMany') {
+                continue;
+            }
+
+            $relatedType = ActivitySubject::forModel($row->details->model ?? null)
+                ?: ActivitySubject::forTable($row->details->table ?? null);
+
+            foreach (array_diff($new, $old) as $id) {
+                $this->activityRecordRelationEvent($dataType, $subject, 'attached', $field, $relatedType, (string) $id);
+            }
+
+            foreach (array_diff($old, $new) as $id) {
+                $this->activityRecordRelationEvent($dataType, $subject, 'detached', $field, $relatedType, (string) $id);
+            }
+        }
+    }
+
+    protected function activityRecordRelationEvent($dataType, Model $subject, string $action, string $field, ?string $relatedType, string $relatedId): void
+    {
+        $isUserRole = $dataType->slug === 'users' && $relatedType === 'role';
+
+        if ($isUserRole) {
+            $this->activity()->recordEventSafe(
+                'user.role_'.$action,
+                'success',
+                $subject,
+                $dataType->slug,
+                [],
+                ['role_id' => $relatedId],
+                'user',
+                (string) $subject->getKey()
+            );
+
+            return;
+        }
+
+        $this->activity()->recordEventSafe(
+            'relation.'.$action,
+            'success',
+            $subject,
+            $dataType->slug,
+            [],
+            [
+                'relation'     => $field,
+                'related_type' => $relatedType,
+                'related_id'   => $relatedId,
+            ],
+            $this->activitySubjectType($dataType, $subject),
+            (string) $subject->getKey()
+        );
+    }
+
+    protected function activityRecordMedia(string $event, ?string $subjectId, ?string $resource, array $metadata, string $result = 'success'): void
+    {
+        $this->activity()->recordEventSafe(
+            $event,
+            $result,
+            null,
+            $resource,
+            [],
+            $metadata,
+            'media',
+            $subjectId
+        );
+    }
+
+    protected function queryBuilderAttributes(Request $request, string $slug, $dataType, $rows, $existing = null): array
+    {
+        $attributes = [];
+
+        foreach ($rows as $row) {
+            if (in_array($row->field, ['id', 'created_at', 'updated_at'], true) || $row->type === 'relationship') {
+                continue;
+            }
+
+            if (!$request->hasFile($row->field) && !$request->has($row->field) && $row->type !== 'checkbox') {
+                continue;
+            }
+
+            $content = $this->getContentBasedOnType($request, $slug, $row, $row->details);
+
+            if (is_null($content)) {
+                if ($existing && isset($existing->{$row->field})) {
+                    $content = $existing->{$row->field};
+                } elseif ($row->type === 'checkbox') {
+                    $content = 0;
+                } else {
+                    continue;
+                }
+            }
+
+            $attributes[$row->field] = $content;
+        }
+
+        if ($existing === null && DB::getSchemaBuilder()->hasColumn($dataType->name, 'created_at')) {
+            $attributes['created_at'] = now();
+        }
+
+        if (DB::getSchemaBuilder()->hasColumn($dataType->name, 'updated_at')) {
+            $attributes['updated_at'] = now();
+        }
+
+        return $attributes;
     }
 
     public function insertUpdateData($request, $slug, $rows, $data)

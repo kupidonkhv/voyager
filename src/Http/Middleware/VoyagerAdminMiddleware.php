@@ -4,6 +4,9 @@ namespace TCG\Voyager\Http\Middleware;
 
 use Closure;
 use Illuminate\Support\Facades\Auth;
+use TCG\Voyager\Activity\ActivityEvent;
+use TCG\Voyager\Activity\ActivityRecorder;
+use TCG\Voyager\Activity\ActivitySubject;
 
 class VoyagerAdminMiddleware
 {
@@ -23,7 +26,27 @@ class VoyagerAdminMiddleware
             $user = Auth::user();
             app()->setLocale($user->locale ?? app()->getLocale());
 
-            return $user->hasPermission('browse_admin') ? $next($request) : redirect('/');
+            if ($user->hasPermission('browse_admin')) {
+                return $next($request);
+            }
+
+            if (config('voyager-activity.enabled', true)) {
+                $routeName = $request->route()?->getName();
+                $resource = ActivitySubject::resourceFromRoute($routeName);
+
+                app(ActivityRecorder::class)->recordSafe(new ActivityEvent(
+                    'access',
+                    'access.denied',
+                    'denied',
+                    $resource ? \Illuminate\Support\Str::singular($resource) : null,
+                    null,
+                    $resource,
+                    [],
+                    []
+                ));
+            }
+
+            return redirect('/');
         }
 
         $urlLogin = route('voyager.login');

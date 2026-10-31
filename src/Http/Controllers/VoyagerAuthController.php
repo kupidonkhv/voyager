@@ -30,12 +30,37 @@ class VoyagerAuthController extends Controller
         if ($this->hasTooManyLoginAttempts($request)) {
             $this->fireLockoutEvent($request);
 
+            $this->activity()->recordEventSafe(
+                'auth.login_failed',
+                'failure',
+                null,
+                'login',
+                [],
+                ['reason_code' => 'too_many_attempts'],
+                'user',
+                null
+            );
+
             return $this->sendLockoutResponse($request);
         }
 
         $credentials = $this->credentials($request);
 
         if ($this->guard()->attempt($credentials, $request->has('remember'))) {
+            $user = $this->guard()->user();
+            $this->activity()->context()->setActorFromUser($user);
+
+            $this->activity()->recordEventSafe(
+                'auth.login_succeeded',
+                'success',
+                null,
+                'login',
+                [],
+                [],
+                'user',
+                (string) $user->getAuthIdentifier()
+            );
+
             return $this->sendLoginResponse($request);
         }
 
@@ -43,6 +68,17 @@ class VoyagerAuthController extends Controller
         // to login and redirect the user back to the login form. Of course, when this
         // user surpasses their maximum number of attempts they will get locked out.
         $this->incrementLoginAttempts($request);
+
+        $this->activity()->recordEventSafe(
+            'auth.login_failed',
+            'failure',
+            null,
+            'login',
+            [],
+            ['reason_code' => 'invalid_credentials'],
+            'user',
+            null
+        );
 
         return $this->sendFailedLoginResponse($request);
     }

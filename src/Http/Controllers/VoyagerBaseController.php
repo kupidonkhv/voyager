@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use TCG\Voyager\Activity\ActivityDiff;
+use TCG\Voyager\Activity\ActivitySubject;
 use TCG\Voyager\Database\Schema\SchemaManager;
 use TCG\Voyager\Events\BreadDataAdded;
 use TCG\Voyager\Events\BreadDataDeleted;
@@ -336,6 +339,72 @@ class VoyagerBaseController extends Controller
         // Compatibility with Model binding.
         $id = $id instanceof \Illuminate\Database\Eloquent\Model ? $id->{$id->getKeyName()} : $id;
 
+        $hasModel = strlen($dataType->model_name) != 0;
+
+        if (!$hasModel) {
+            $this->authorize('browse_bread');
+
+            $before = DB::table($dataType->name)->where('id', $id)->first();
+            abort_if(!$before, 404);
+
+            $this->validateBread($request->all(), $dataType->editRows, $dataType->name, $id)->validate();
+
+            try {
+                return DB::transaction(function () use ($request, $slug, $dataType, $id, $before) {
+                    $attributes = $this->queryBuilderAttributes($request, $slug, $dataType, $dataType->editRows, $before);
+                    DB::table($dataType->name)->where('id', $id)->update($attributes);
+
+                    $after = DB::table($dataType->name)->where('id', $id)->first();
+
+                    $changed = ActivityDiff::changedFieldsBetween(
+                        (array) $before,
+                        (array) $after,
+                        $this->activityExcludedFields()
+                    );
+
+                    if ($changed) {
+                        $this->activity()->recordEventSafe(
+                            $this->activityEventName($dataType, 'updated'),
+                            'success',
+                            null,
+                            $dataType->slug,
+                            $changed,
+                            [],
+                            ActivitySubject::forTable($dataType->name),
+                            (string) $id
+                        );
+                    }
+
+                    $redirect = auth()->user()->can('browse_bread')
+                        ? redirect()->route("voyager.{$dataType->slug}.index")
+                        : redirect()->back();
+
+                    return $redirect->with([
+                        'message'    => __('voyager::generic.successfully_updated')." {$dataType->getTranslatedAttribute('display_name_singular')}",
+                        'alert-type' => 'success',
+                    ]);
+                });
+            } catch (\Throwable $e) {
+                report($e);
+
+                $this->activity()->recordEventSafe(
+                    $this->activityEventName($dataType, 'updated'),
+                    'failure',
+                    null,
+                    $dataType->slug,
+                    [],
+                    [],
+                    ActivitySubject::forTable($dataType->name),
+                    (string) $id
+                );
+
+                return back()->with([
+                    'message'    => __('voyager::activity.save_failed'),
+                    'alert-type' => 'error',
+                ]);
+            }
+        }
+
         $model = app($dataType->model_name);
         $query = $model->query();
         if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope'.ucfirst($dataType->scope))) {
@@ -359,24 +428,47 @@ class VoyagerBaseController extends Controller
                 return $request->hasFile($item->field);
             });
         $original_data = clone($data);
-
-        $this->insertUpdateData($request, $slug, $dataType->editRows, $data);
-
-        // Delete Images
-        $this->deleteBreadImages($original_data, $to_remove);
-
-        event(new BreadDataUpdated($dataType, $data));
-
-        if (auth()->user()->can('browse', app($dataType->model_name))) {
-            $redirect = redirect()->route("voyager.{$dataType->slug}.index");
-        } else {
-            $redirect = redirect()->back();
+        if (method_exists($original_data, 'translations')) {
+            $original_data->loadMissing('translations');
         }
+        $relations_before = $this->activityRelationSnapshot($data, $dataType->editRows);
 
-        return $redirect->with([
-            'message'    => __('voyager::generic.successfully_updated')." {$dataType->getTranslatedAttribute('display_name_singular')}",
-            'alert-type' => 'success',
-        ]);
+        try {
+            return DB::transaction(function () use ($request, $slug, $dataType, $data, $original_data, $to_remove, $relations_before) {
+                $data = $this->insertUpdateData($request, $slug, $dataType->editRows, $data);
+
+                // Delete Images
+                $this->deleteBreadImages($original_data, $to_remove);
+
+                $this->activityRecordUpdated($dataType, $original_data, $data);
+                $this->activityRecordRelationChanges(
+                    $dataType,
+                    $data,
+                    $relations_before,
+                    $this->activityRelationSnapshot($data, $dataType->rows)
+                );
+
+                event(new BreadDataUpdated($dataType, $data));
+
+                if (auth()->user()->can('browse', app($dataType->model_name))) {
+                    $redirect = redirect()->route("voyager.{$dataType->slug}.index");
+                } else {
+                    $redirect = redirect()->back();
+                }
+
+                return $redirect->with([
+                    'message'    => __('voyager::generic.successfully_updated')." {$dataType->getTranslatedAttribute('display_name_singular')}",
+                    'alert-type' => 'success',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
+            ]);
+        }
     }
 
     //***************************************
@@ -442,28 +534,88 @@ class VoyagerBaseController extends Controller
 
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
 
+        $hasModel = strlen($dataType->model_name) != 0;
+
         // Check permission
-        $this->authorize('add', app($dataType->model_name));
+        if ($hasModel) {
+            $this->authorize('add', app($dataType->model_name));
+        } else {
+            $this->authorize('browse_bread');
+        }
 
         // Validate fields with ajax
         $val = $this->validateBread($request->all(), $dataType->addRows)->validate();
-        $data = $this->insertUpdateData($request, $slug, $dataType->addRows, new $dataType->model_name());
 
-        event(new BreadDataAdded($dataType, $data));
+        try {
+            return DB::transaction(function () use ($request, $slug, $dataType, $hasModel) {
+                if ($hasModel) {
+                    $data = $this->insertUpdateData($request, $slug, $dataType->addRows, new $dataType->model_name());
 
-        if (!$request->has('_tagging')) {
-            if (auth()->user()->can('browse', $data)) {
-                $redirect = redirect()->route("voyager.{$dataType->slug}.index");
-            } else {
-                $redirect = redirect()->back();
+                    if (isset($data)) {
+                        $this->activityRecordCreated($dataType, $data);
+                        $this->activityRecordRelationChanges(
+                            $dataType,
+                            $data,
+                            [],
+                            $this->activityRelationSnapshot($data, $dataType->rows)
+                        );
+                    }
+
+                    event(new BreadDataAdded($dataType, $data));
+                    $canBrowse = auth()->user()->can('browse', $data);
+                } else {
+                    $attributes = $this->queryBuilderAttributes($request, $slug, $dataType, $dataType->addRows);
+                    $id = DB::table($dataType->name)->insertGetId($attributes);
+                    $data = (object) array_merge(['id' => $id], $attributes);
+
+                    $this->activity()->recordEventSafe(
+                        $this->activityEventName($dataType, 'created'),
+                        'success',
+                        null,
+                        $dataType->slug,
+                        [],
+                        [],
+                        ActivitySubject::forTable($dataType->name),
+                        (string) $id
+                    );
+
+                    $canBrowse = auth()->user()->can('browse_bread');
+                }
+
+                if (!$request->has('_tagging')) {
+                    $redirect = $canBrowse
+                        ? redirect()->route("voyager.{$dataType->slug}.index")
+                        : redirect()->back();
+
+                    return $redirect->with([
+                        'message'    => __('voyager::generic.successfully_added_new')." {$dataType->getTranslatedAttribute('display_name_singular')}",
+                        'alert-type' => 'success',
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'data' => $data]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            $this->activity()->recordEventSafe(
+                $this->activityEventName($dataType, 'created'),
+                'failure',
+                null,
+                $dataType->slug,
+                [],
+                [],
+                ActivitySubject::forTable($dataType->name)
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => __('voyager::activity.save_failed')], 500);
             }
 
-            return $redirect->with([
-                'message'    => __('voyager::generic.successfully_added_new')." {$dataType->getTranslatedAttribute('display_name_singular')}",
-                'alert-type' => 'success',
+            return back()->with([
+                'message'    => __('voyager::activity.save_failed'),
+                'alert-type' => 'error',
             ]);
-        } else {
-            return response()->json(['success' => true, 'data' => $data]);
         }
     }
 
@@ -495,26 +647,52 @@ class VoyagerBaseController extends Controller
             $ids[] = $id;
         }
 
+        $hasModel = strlen($dataType->model_name) != 0;
         $affected = 0;
-        
+
         foreach ($ids as $id) {
-            $data = call_user_func([$dataType->model_name, 'findOrFail'], $id);
+            DB::transaction(function () use ($dataType, $id, $hasModel, &$affected) {
+                if ($hasModel) {
+                    $data = call_user_func([$dataType->model_name, 'findOrFail'], $id);
 
-            // Check permission
-            $this->authorize('delete', $data);
+                    // Check permission
+                    $this->authorize('delete', $data);
 
-            $model = app($dataType->model_name);
-            if (!($model && in_array(SoftDeletes::class, class_uses_recursive($model)))) {
-                $this->cleanup($dataType, $data);
-            }
+                    $model = app($dataType->model_name);
+                    if (!($model && in_array(SoftDeletes::class, class_uses_recursive($model)))) {
+                        $this->cleanup($dataType, $data);
+                    }
 
-            $res = $data->delete();
+                    $res = $data->delete();
 
-            if ($res) {
-                $affected++;
+                    if ($res) {
+                        $this->activityRecordDeleted($dataType, $data);
+                        $affected++;
 
-                event(new BreadDataDeleted($dataType, $data));
-            }
+                        event(new BreadDataDeleted($dataType, $data));
+                    }
+                } else {
+                    $this->authorize('browse_bread');
+
+                    $exists = DB::table($dataType->name)->where('id', $id)->exists();
+                    abort_if(!$exists, 404);
+
+                    DB::table($dataType->name)->where('id', $id)->delete();
+
+                    $this->activity()->recordEventSafe(
+                        $this->activityEventName($dataType, 'deleted'),
+                        'success',
+                        null,
+                        $dataType->slug,
+                        [],
+                        [],
+                        ActivitySubject::forTable($dataType->name),
+                        (string) $id
+                    );
+
+                    $affected++;
+                }
+            });
         }
 
         $displayName = $affected > 1 ? $dataType->getTranslatedAttribute('display_name_plural') : $dataType->getTranslatedAttribute('display_name_singular');
@@ -551,22 +729,26 @@ class VoyagerBaseController extends Controller
 
         $displayName = $dataType->getTranslatedAttribute('display_name_singular');
 
-        $res = $data->restore($id);
-        $data = $res
-            ? [
-                'message'    => __('voyager::generic.successfully_restored')." {$displayName}",
-                'alert-type' => 'success',
-            ]
-            : [
-                'message'    => __('voyager::generic.error_restoring')." {$displayName}",
-                'alert-type' => 'error',
-            ];
+        return DB::transaction(function () use ($data, $id, $dataType, $displayName) {
+            $res = $data->restore($id);
 
-        if ($res) {
-            event(new BreadDataRestored($dataType, $data));
-        }
+            if ($res) {
+                $this->activityRecordDeleted($dataType, $data, 'restored');
+                event(new BreadDataRestored($dataType, $data));
 
-        return redirect()->route("voyager.{$dataType->slug}.index")->with($data);
+                $result = [
+                    'message'    => __('voyager::generic.successfully_restored')." {$displayName}",
+                    'alert-type' => 'success',
+                ];
+            } else {
+                $result = [
+                    'message'    => __('voyager::generic.error_restoring')." {$displayName}",
+                    'alert-type' => 'error',
+                ];
+            }
+
+            return redirect()->route("voyager.{$dataType->slug}.index")->with($result);
+        });
     }
 
     //***************************************
@@ -670,6 +852,11 @@ class VoyagerBaseController extends Controller
             }
 
             $data->save();
+
+            $this->activityRecordMedia('media.deleted', null, $slug, [
+                'disk' => config('voyager.storage.disk'),
+                'path' => $fileToRemove,
+            ]);
 
             return response()->json([
                 'data' => [
@@ -851,16 +1038,35 @@ class VoyagerBaseController extends Controller
         $model = app($dataType->model_name);
 
         $order = json_decode($request->input('order'));
-        $column = $dataType->order_column;
-        foreach ($order as $key => $item) {
-            if ($model && in_array(SoftDeletes::class, class_uses_recursive($model))) {
-                $i = $model->withTrashed()->findOrFail($item->id);
-            } else {
-                $i = $model->findOrFail($item->id);
-            }
-            $i->$column = ($key + 1);
-            $i->save();
+
+        if (!is_array($order) || count($order) === 0) {
+            return;
         }
+
+        DB::transaction(function () use ($order, $model, $dataType) {
+            $column = $dataType->order_column;
+
+            foreach ($order as $key => $item) {
+                if ($model && in_array(SoftDeletes::class, class_uses_recursive($model))) {
+                    $i = $model->withTrashed()->findOrFail($item->id);
+                } else {
+                    $i = $model->findOrFail($item->id);
+                }
+                $i->$column = ($key + 1);
+                $i->save();
+            }
+
+            $this->activity()->recordEventSafe(
+                'records.reordered',
+                'success',
+                null,
+                $dataType->slug,
+                [],
+                ['count' => count($order)],
+                ActivitySubject::forTable($dataType->name),
+                null
+            );
+        });
     }
 
     public function action(Request $request)
