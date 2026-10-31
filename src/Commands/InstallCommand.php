@@ -146,6 +146,9 @@ class InstallCommand extends Command
         $this->info('Installing the Gallery BREAD and menu item');
         $this->call('voyager:gallery:install');
 
+        $this->info('Installing activity log permissions and menu item');
+        $this->call('voyager:activity:install');
+
         $this->info('Adding the storage symlink to your public folder');
         $this->call('storage:link');
 

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
+use TCG\Voyager\Activity\ActivityDiff;
+use TCG\Voyager\Activity\ActivitySubject;
 use TCG\Voyager\Http\Controllers\VoyagerBaseController;
 use TCG\Voyager\Http\Controllers\Controller;
 use Illuminate\Support\Facades\View;
@@ -384,19 +386,43 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
             }
         }
 
-        $res = $cloned->save();
+        try {
+            return DB::transaction(function () use ($cloned, $dataType, $id) {
+                $res = $cloned->save();
 
-        $data = $res
-            ? [
-                'message' => __('voyager::generic.successfully_cloned') . " {$dataType->display_name_singular}",
-                'alert-type' => 'success',
-            ]
-            : [
-                'message' => __('voyager::generic.error_cloning') . " {$dataType->display_name_singular}",
+                if ($res) {
+                    $this->activity()->recordEventSafe(
+                        'record.cloned',
+                        'success',
+                        $cloned,
+                        $dataType->slug,
+                        [],
+                        ['source_id' => (string) $id],
+                        ActivitySubject::forModel($cloned),
+                        (string) $cloned->getKey()
+                    );
+                }
+
+                $data = $res
+                    ? [
+                        'message' => __('voyager::generic.successfully_cloned') . " {$dataType->display_name_singular}",
+                        'alert-type' => 'success',
+                    ]
+                    : [
+                        'message' => __('voyager::generic.error_cloning') . " {$dataType->display_name_singular}",
+                        'alert-type' => 'error',
+                    ];
+
+                return redirect()->route("voyager.{$dataType->slug}.index")->with($data);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->route("voyager.{$dataType->slug}.index")->with([
+                'message' => __('voyager::activity.save_failed'),
                 'alert-type' => 'error',
-            ];
-
-        return redirect()->route("voyager.{$dataType->slug}.index")->with($data);
+            ]);
+        }
     }
 
     /*
@@ -537,13 +563,32 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
                 throw new Exception(__('voyager::generic.field_does_not_exist'), 400);
             }
 
+            $before = clone $data;
+
             if(isset($json) && $json) {
                 $data->{$field} = json_encode(array_values($value));
             } else {
                 $data->{$field} = $value;
             }
 
-            $data->save();
+            DB::transaction(function () use ($data, $before, $slug, $field) {
+                $data->save();
+
+                $changed = ActivityDiff::changedFields($before, $data, $this->activityExcludedFields());
+
+                if ($changed) {
+                    $this->activity()->recordEventSafe(
+                        'record.updated',
+                        'success',
+                        $data,
+                        $slug,
+                        $changed,
+                        [],
+                        ActivitySubject::forModel($data),
+                        (string) $data->getKey()
+                    );
+                }
+            });
 
             return json_response_with_success(200, __('voyager-extension::bread.record_updated'));
 
@@ -572,7 +617,20 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
             // Check permission
             $this->authorize('edit', $model);
 
-            $this->orderTree($itemsOrder, null, $model);
+            DB::transaction(function () use ($itemsOrder, $model, $slug) {
+                $count = $this->orderTree($itemsOrder, null, $model);
+
+                $this->activity()->recordEventSafe(
+                    'records.reordered',
+                    'success',
+                    null,
+                    $slug,
+                    [],
+                    ['count' => $count],
+                    ActivitySubject::forTable($model->getTable()),
+                    null
+                );
+            });
 
             return json_response_with_success(200, __('voyager-extension::bread.record_updated'));
 
@@ -582,18 +640,23 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
 
     }
 
-    private function orderTree(array $children, $parentId, $model)
+    private function orderTree(array $children, $parentId, $model): int
     {
+        $count = 0;
+
         foreach ($children as $index => $child) {
             $item = $model->findOrFail($child->id);
             $item->order = $index + 1;
             $item->parent_id = $parentId;
             $item->save();
+            $count++;
 
             if (isset($child->children)) {
-                $this->orderTree($child->children, $item->id, $model);
+                $count += $this->orderTree($child->children, $item->id, $model);
             }
         }
+
+        return $count;
     }
 
     private function getFileName($file)

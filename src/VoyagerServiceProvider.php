@@ -4,6 +4,7 @@ namespace TCG\Voyager;
 
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Pagination\Paginator;
@@ -15,12 +16,21 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Mews\Captcha\CaptchaServiceProvider;
 use Mews\Captcha\Facades\Captcha as CaptchaFacade;
 use MonstreX\VoyagerExtension\VoyagerExtensionServiceProvider;
+use TCG\Voyager\Activity\ActivityContext;
+use TCG\Voyager\Activity\ActivityRecorder;
+use TCG\Voyager\Activity\ActivitySanitizer;
+use TCG\Voyager\Activity\ActivityWriter;
 use TCG\Voyager\Events\FormFieldsRegistered;
 use TCG\Voyager\Facades\Voyager as VoyagerFacade;
 use TCG\Voyager\FormFields\After\DescriptionHandler;
+use TCG\Voyager\Http\Middleware\CaptureActivityContext;
+use TCG\Voyager\Http\Middleware\RecordAccessDenied;
 use TCG\Voyager\Http\Middleware\VoyagerAdminMiddleware;
 use TCG\Voyager\Models\MenuItem;
 use TCG\Voyager\Models\Setting;
@@ -51,6 +61,8 @@ class VoyagerServiceProvider extends ServiceProvider
         'browse_database',
         'browse_media',
         'browse_compass',
+        'browse_activity_logs',
+        'browse_activity_log_context',
     ];
 
     /**
@@ -74,6 +86,17 @@ class VoyagerServiceProvider extends ServiceProvider
         });
 
         $this->loadHelpers();
+
+        $this->app->scoped(ActivityContext::class, fn () => new ActivityContext());
+        $this->app->singleton(ActivitySanitizer::class);
+        $this->app->singleton(ActivityWriter::class);
+        $this->app->scoped(ActivityRecorder::class, function ($app) {
+            return new ActivityRecorder(
+                $app->make(ActivityContext::class),
+                $app->make(ActivitySanitizer::class),
+                $app->make(ActivityWriter::class)
+            );
+        });
 
         $this->registerAlertComponents();
         $this->registerFormFields();
@@ -114,6 +137,8 @@ class VoyagerServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'voyager');
 
         $router->aliasMiddleware('admin.user', VoyagerAdminMiddleware::class);
+        $router->aliasMiddleware('voyager.activity.context', CaptureActivityContext::class);
+        $router->aliasMiddleware('voyager.activity.denied', RecordAccessDenied::class);
 
         $this->loadTranslationsFrom(realpath(__DIR__.'/../publishable/lang'), 'voyager');
 
@@ -135,6 +160,7 @@ class VoyagerServiceProvider extends ServiceProvider
 
         $this->bootTranslatorCollectionMacros();
         $this->bootGalleryMacro();
+        $this->bootActivityContext();
 
         if (method_exists('Paginator', 'useBootstrap')) {
             Paginator::useBootstrap();
@@ -273,6 +299,9 @@ class VoyagerServiceProvider extends ServiceProvider
             'config' => [
                 "{$publishablePath}/config/voyager.php" => config_path('voyager.php'),
             ],
+            'voyager-activity-config' => [
+                "{$publishablePath}/config/voyager-activity.php" => config_path('voyager-activity.php'),
+            ],
             'voyager-extension-config' => [
                 "{$publishablePath}/config/voyager-extension.php" => config_path('voyager-extension.php'),
             ],
@@ -300,6 +329,11 @@ class VoyagerServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             dirname(__DIR__).'/publishable/config/voyager.php',
             'voyager'
+        );
+
+        $this->mergeConfigFrom(
+            dirname(__DIR__).'/publishable/config/voyager-activity.php',
+            'voyager-activity'
         );
     }
 
@@ -384,8 +418,42 @@ class VoyagerServiceProvider extends ServiceProvider
     {
         $this->commands(Commands\InstallCommand::class);
         $this->commands(Commands\GalleryInstallCommand::class);
+        $this->commands(Commands\ActivityInstallCommand::class);
+        $this->commands(Commands\ActivityPruneCommand::class);
         $this->commands(Commands\ControllersCommand::class);
         $this->commands(Commands\AdminCommand::class);
+    }
+
+    protected function bootActivityContext(): void
+    {
+        $userModel = config('auth.providers.users.model', 'App\\Models\\User');
+
+        if (is_string($userModel) && class_exists($userModel)) {
+            Relation::morphMap(['user' => $userModel], false);
+        }
+
+        foreach ((array) config('voyager-activity.custom_events', []) as $event => $keys) {
+            try {
+                ActivitySanitizer::register((string) $event, (array) $keys);
+            } catch (\Throwable $e) {
+                Log::warning('Invalid voyager-activity custom event configuration', ['event' => $event]);
+            }
+        }
+
+        $app = $this->app;
+
+        $this->app['events']->listen(JobProcessing::class, function () use ($app) {
+            $context = $app->make(ActivityContext::class);
+            $context->reset();
+            $context->setSource('job');
+        });
+
+        $reset = function () use ($app) {
+            $app->make(ActivityContext::class)->reset();
+        };
+
+        $this->app['events']->listen(JobProcessed::class, $reset);
+        $this->app['events']->listen(JobExceptionOccurred::class, $reset);
     }
 
     /**

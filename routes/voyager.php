@@ -22,10 +22,10 @@ Route::group(['as' => 'voyager.'], function () {
 
     $namespacePrefix = '\\'.config('voyager.controllers.namespace').'\\';
 
-    Route::get('login', ['uses' => $namespacePrefix.'VoyagerAuthController@login',     'as' => 'login']);
-    Route::post('login', ['uses' => $namespacePrefix.'VoyagerAuthController@postLogin', 'as' => 'postlogin']);
+    Route::get('login', ['uses' => $namespacePrefix.'VoyagerAuthController@login',     'as' => 'login'])->middleware('voyager.activity.context');
+    Route::post('login', ['uses' => $namespacePrefix.'VoyagerAuthController@postLogin', 'as' => 'postlogin'])->middleware('voyager.activity.context');
 
-    Route::group(['middleware' => 'admin.user'], function () use ($namespacePrefix) {
+    Route::group(['middleware' => ['voyager.activity.context', 'voyager.activity.denied', 'admin.user']], function () use ($namespacePrefix) {
         event(new RoutingAdmin());
 
         // Main Admin and Logout Route
@@ -34,6 +34,9 @@ Route::group(['as' => 'voyager.'], function () {
         Route::post('upload', ['uses' => $namespacePrefix.'VoyagerController@upload',  'as' => 'upload']);
 
         Route::get('profile', ['uses' => $namespacePrefix.'VoyagerUserController@profile', 'as' => 'profile']);
+
+        Route::get('activity', ['uses' => $namespacePrefix.'VoyagerActivityLogController@index', 'as' => 'activity.index']);
+        Route::get('activity/{id}', ['uses' => $namespacePrefix.'VoyagerActivityLogController@show', 'as' => 'activity.show'])->where('id', '[0-9]+');
 
         try {
             foreach (Voyager::model('DataType')::all() as $dataType) {

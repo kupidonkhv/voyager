@@ -11,6 +11,7 @@ use TCG\Voyager\Database\Schema\SchemaManager;
 use TCG\Voyager\Database\Schema\Table;
 use TCG\Voyager\Database\Types\Type;
 use TCG\Voyager\Events\BreadAdded;
+use TCG\Voyager\Activity\ActivityDiff;
 use TCG\Voyager\Events\BreadDeleted;
 use TCG\Voyager\Events\BreadUpdated;
 use TCG\Voyager\Facades\Voyager;
@@ -104,6 +105,17 @@ class VoyagerBreadController extends Controller
                 : $this->alertError(__('voyager::bread.error_creating_bread'));
             if ($res) {
                 event(new BreadAdded($dataType, $data));
+
+                $this->activity()->recordEventSafe(
+                    'bread.created',
+                    'success',
+                    $dataType,
+                    'bread',
+                    [],
+                    ['slug' => (string) $dataType->slug],
+                    'bread',
+                    (string) $dataType->getKey()
+                );
             }
 
             return redirect()->route('voyager.bread.index')->with($data);
@@ -157,6 +169,7 @@ class VoyagerBreadController extends Controller
         /* @var \TCG\Voyager\Models\DataType $dataType */
         try {
             $dataType = Voyager::model('DataType')->find($id);
+            $before = clone $dataType;
 
             // Prepare Translations and Transform data
             $translations = is_bread_translatable($dataType)
@@ -169,6 +182,21 @@ class VoyagerBreadController extends Controller
                 : $this->alertError(__('voyager::bread.error_updating_bread'));
             if ($res) {
                 event(new BreadUpdated($dataType, $data));
+
+                $changed = ActivityDiff::changedFields($before, $dataType, $this->activityExcludedFields());
+
+                if ($changed) {
+                    $this->activity()->recordEventSafe(
+                        'bread.updated',
+                        'success',
+                        $dataType,
+                        'bread',
+                        $changed,
+                        ['slug' => (string) $dataType->slug],
+                        'bread',
+                        (string) $dataType->getKey()
+                    );
+                }
             }
 
             // Save translations if applied
@@ -205,6 +233,17 @@ class VoyagerBreadController extends Controller
             : $this->alertError(__('voyager::bread.error_updating_bread'));
         if ($res) {
             event(new BreadDeleted($dataType, $data));
+
+            $this->activity()->recordEventSafe(
+                'bread.deleted',
+                'success',
+                $dataType,
+                'bread',
+                [],
+                ['slug' => (string) $dataType->slug],
+                'bread',
+                (string) $dataType->getKey()
+            );
         }
 
         if (!is_null($dataType)) {

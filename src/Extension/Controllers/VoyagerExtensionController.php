@@ -8,12 +8,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
+use TCG\Voyager\Activity\ActivityRecorder;
 use TCG\Voyager\Facades\Voyager;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 
 class VoyagerExtensionController extends BaseController
 {
+
+    protected function activity(): ActivityRecorder
+    {
+        return app(ActivityRecorder::class);
+    }
 
     /*
      * Load Translations
@@ -199,6 +205,21 @@ class VoyagerExtensionController extends BaseController
 
             $old_file->delete();
 
+            $this->activity()->recordEventSafe(
+                'media.replaced',
+                'success',
+                null,
+                $slug,
+                [],
+                [
+                    'disk' => $new_file->disk,
+                    'path' => $new_file->getPathRelativeToRoot(),
+                    'size' => $new_file->size,
+                ],
+                'media',
+                (string) $new_file->getKey()
+            );
+
             $file_name_size = Str::limit($new_file->file_name, 20, ' (...)');
             $file_name_size .= ' <i class="' . ($new_file->size > 100000 ? 'large' : '') . '">' . $new_file->human_readable_size . '</i>';
 
@@ -230,10 +251,29 @@ class VoyagerExtensionController extends BaseController
             $media_ids = [$request->get('media_file_id')];
         }
 
+        $media = Media::whereIn('id', $media_ids)->get();
+
         try {
             Media::destroy($media_ids);
         } catch (Exception $error) {
             return json_response_with_error(500, $error);
+        }
+
+        foreach ($media as $mediaItem) {
+            $this->activity()->recordEventSafe(
+                'media.deleted',
+                'success',
+                null,
+                'media',
+                [],
+                [
+                    'disk' => $mediaItem->disk,
+                    'path' => $mediaItem->getPathRelativeToRoot(),
+                    'size' => $mediaItem->size,
+                ],
+                'media',
+                (string) $mediaItem->getKey()
+            );
         }
 
         return json_response_with_success(200, __('voyager-extension::bread.media_removed'));

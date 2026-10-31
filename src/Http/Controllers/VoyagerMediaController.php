@@ -127,6 +127,11 @@ class VoyagerMediaController extends Controller
             $error = __('voyager::media.error_creating_dir');
         }
 
+        $this->activityRecordMedia('media.directory_created', null, 'media', [
+            'disk' => $this->filesystem,
+            'path' => $new_folder,
+        ], $success ? 'success' : 'failure');
+
         return compact('success', 'error');
     }
 
@@ -141,15 +146,25 @@ class VoyagerMediaController extends Controller
 
         foreach ($request->get('files') as $file) {
             $file_path = $path.$file['name'];
-            if ($file['type'] == 'folder') {
-                if (!Storage::disk($this->filesystem)->deleteDirectory($file_path)) {
-                    $error = __('voyager::media.error_deleting_folder');
-                    $success = false;
-                }
-            } elseif (!Storage::disk($this->filesystem)->delete($file_path)) {
-                $error = __('voyager::media.error_deleting_file');
+            $isFolder = $file['type'] == 'folder';
+            $deleted = $isFolder
+                ? Storage::disk($this->filesystem)->deleteDirectory($file_path)
+                : Storage::disk($this->filesystem)->delete($file_path);
+
+            if (!$deleted) {
+                $error = $isFolder
+                    ? __('voyager::media.error_deleting_folder')
+                    : __('voyager::media.error_deleting_file');
                 $success = false;
             }
+
+            $this->activityRecordMedia(
+                $isFolder ? 'media.directory_deleted' : 'media.deleted',
+                null,
+                'media',
+                ['disk' => $this->filesystem, 'path' => $file_path],
+                $deleted ? 'success' : 'failure'
+            );
         }
 
         return compact('success', 'error');
@@ -173,12 +188,28 @@ class VoyagerMediaController extends Controller
         foreach ($request->get('files') as $file) {
             $old_path = $path.$file['name'];
             $new_path = $dest.$file['name'];
+            $isFolder = $file['type'] == 'folder';
 
             try {
                 Storage::disk($this->filesystem)->move($old_path, $new_path);
+
+                $this->activityRecordMedia(
+                    $isFolder ? 'media.directory_moved' : 'media.moved',
+                    null,
+                    'media',
+                    ['disk' => $this->filesystem, 'path' => $new_path]
+                );
             } catch (\Exception $ex) {
                 $success = false;
                 $error = $ex->getMessage();
+
+                $this->activityRecordMedia(
+                    $isFolder ? 'media.directory_moved' : 'media.moved',
+                    null,
+                    'media',
+                    ['disk' => $this->filesystem, 'path' => $old_path],
+                    'failure'
+                );
 
                 return compact('success', 'error');
             }
@@ -210,6 +241,11 @@ class VoyagerMediaController extends Controller
             if (!Storage::disk($this->filesystem)->exists("{$location}/{$newFilename}")) {
                 if (Storage::disk($this->filesystem)->move("{$location}/{$filename}", "{$location}/{$newFilename}")) {
                     $success = true;
+
+                    $this->activityRecordMedia('media.renamed', null, 'media', [
+                        'disk' => $this->filesystem,
+                        'path' => "{$location}/{$newFilename}",
+                    ]);
                 } else {
                     $error = __('voyager::media.error_moving');
                 }
@@ -325,6 +361,12 @@ class VoyagerMediaController extends Controller
             $path = preg_replace('/^public\//', '', $file);
 
             event(new MediaFileAdded($path));
+
+            $this->activityRecordMedia('media.uploaded', null, 'media', [
+                'disk' => $this->filesystem,
+                'path' => $path,
+                'size' => $request->file->getSize(),
+            ]);
         } catch (Exception $e) {
             $success = false;
             $message = $e->getMessage();
@@ -367,6 +409,11 @@ class VoyagerMediaController extends Controller
 
             $success = true;
             $message = __('voyager::media.success_crop_image');
+
+            $this->activityRecordMedia('media.replaced', null, 'media', [
+                'disk' => $this->filesystem,
+                'path' => $destImagePath,
+            ]);
         } catch (Exception $e) {
             $success = false;
             $message = $e->getMessage();

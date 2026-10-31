@@ -20,6 +20,22 @@ class VoyagerController extends Controller
 
     public function logout()
     {
+        $user = Auth::user();
+
+        if ($user) {
+            $this->activity()->context()->setActorFromUser($user);
+            $this->activity()->recordEventSafe(
+                'auth.logout',
+                'success',
+                null,
+                'login',
+                [],
+                [],
+                'user',
+                (string) $user->getAuthIdentifier()
+            );
+        }
+
         Auth::logout();
 
         return redirect()->route('voyager.login');
@@ -67,6 +83,12 @@ class VoyagerController extends Controller
             if (Storage::disk(config('voyager.storage.disk'))->put($fullPath, (string) $image, 'public')) {
                 $status = __('voyager::media.success_uploading');
                 $fullFilename = $fullPath;
+
+                $this->activityRecordMedia('media.uploaded', null, $slug, [
+                    'disk' => config('voyager.storage.disk'),
+                    'path' => $fullPath,
+                    'size' => Storage::disk(config('voyager.storage.disk'))->size($fullPath),
+                ]);
             } else {
                 $status = __('voyager::media.error_uploading');
             }
