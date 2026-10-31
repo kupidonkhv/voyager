@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.48] - 2026-10-31
+
+### 🔐 Admin Activity Log
+
+- Added a built-in activity log that records who, when, what action, on which object and with what result
+- Covered BREAD record changes, deletions, restores and clones
+- Covered file uploads, replacements, moves, renames and deletions
+- Covered settings changes, role and permission assignments
+- Covered login, logout, failed login attempts and access denials
+- Added the `/admin/activity` section with filters and event details
+- Added `browse_activity_logs` and `browse_activity_log_context` permissions
+- Added `php artisan voyager:activity:install` and `php artisan voyager:activity:prune`
+- Added `config/voyager-activity.php`, English and Russian translations
+
+### 🛡️ Security
+
+- Record edits store affected field names only; old and new values are never stored or exposed
+- Deletions store only the subject type and identifier
+- Passwords, tokens, file contents and request bodies are excluded
+- Event metadata is validated against a per-event allow-list
+- Absolute paths, unsafe strings and forbidden keys are rejected
+- Activity log failures do not roll back the primary admin action
+
+### 📚 Documentation
+
+- Rewrote the README in Russian across the full Voyager documentation set
+- Documented Galleries, Captcha, the embedded extension and the activity log
+- Documented PHP 8.2–8.4 and Laravel 10–13 support
+
+### ✅ Verification
+
+- 148 tests, 978 assertions on PHP 8.4 / Laravel 13.39.0
+- `composer validate` passes
+
+## [1.7.47] - 2026-10-30
+
+### 🖼️ Galleries
+
+- Added a Gallery BREAD stored through `spatie/laravel-medialibrary`
+- Added image uploads, captions, drag sorting and thumbnail size selection
+- Added localized admin menu installation for `en` and `ru`
+- Added `%gallery="Gallery name"%` content embedding
+- Added `default`, `photo-carousel` and `rounded` frontend templates
+- Added `php artisan voyager:gallery:install`
+
+### ✅ Verification
+
+- 140 tests, 937 assertions on PHP 8.4 / Laravel 13.39.0
+- Fresh Laravel 13 installation verified
+
 ## [1.7.46] - 2026-10-30
 
 ### 🐛 Packaging Fix

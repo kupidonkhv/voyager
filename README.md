@@ -2,7 +2,7 @@
 
 [![Laravel](https://img.shields.io/badge/Laravel-10%20%7C%2011%20%7C%2012%20%7C%2013-FF2D20?logo=laravel&logoColor=white)](https://laravel.com)
 [![PHP](https://img.shields.io/badge/PHP-8.2%20%7C%208.3%20%7C%208.4-777BB4?logo=php&logoColor=white)](https://www.php.net)
-[![Version](https://img.shields.io/badge/version-1.7.47-blue)](https://github.com/kupidonkhv/voyager/releases)
+[![Version](https://img.shields.io/badge/version-1.7.48-blue)](https://github.com/kupidonkhv/voyager/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](license)
 
 Voyager — это админ-панель и система BREAD (Browse, Read, Edit, Add, Delete) для Laravel. Форк `kupidonkhv/voyager-fork` поддерживает актуальные версии Laravel и PHP, а также включает готовые Галереи, Капчу, журнал активности и набор расширенных полей BREAD.
@@ -68,7 +68,7 @@ Voyager — это админ-панель и система BREAD (Browse, Read
 
 ### Поддержка Laravel и PHP
 
-- Laravel 10.x, 11.x, 12.x и 13.x. Версия 1.7.47 проверена на Laravel 13.39.0.
+- Laravel 10.x, 11.x, 12.x и 13.x. Версия 1.7.48 проверена на Laravel 13.39.0.
 - PHP 8.2, 8.3 и 8.4. Исправлены неявно nullable-параметры, несовместимые с PHP 8.4.
 - Intervention Image 3.7+ и 4.x, включая нативный image-менеджер Laravel 13.
 - Работа со схемой и интроспекцией базы данных без Doctrine DBAL, включая SQLite.
@@ -108,7 +108,7 @@ Voyager — это админ-панель и система BREAD (Browse, Read
 
 ### Кратко о журнале активности
 
-В версии 1.7.47 добавлен встроенный журнал действий администраторов:
+В версии 1.7.48 добавлен встроенный журнал действий администраторов:
 
 - фиксирует, кто, когда и что сделал, над каким объектом и с каким результатом;
 - покрывает изменения и удаления записей, файлы, настройки, роли и разрешения;
@@ -207,14 +207,14 @@ Voyager — не CMS и не блог-платформа. На нём можно
 Создайте новое Laravel-приложение и добавьте пакет:
 
 ```bash
-composer require kupidonkhv/voyager-fork:^1.7.47
+composer require kupidonkhv/voyager-fork:^1.7.48
 ```
 
 Если в проекте уже установлены старые отдельные пакеты, сначала удалите их:
 
 ```bash
 composer remove monstrex/voyager-extension kupidonkhv/captcha mews/captcha
-composer require kupidonkhv/voyager-fork:^1.7.47
+composer require kupidonkhv/voyager-fork:^1.7.48
 ```
 
 > Если Packagist ещё не проиндексировал новый релиз, подождите несколько минут или установите ветку разработки:
@@ -378,12 +378,12 @@ composer dump-autoload
 
 ## Обновление
 
-### Обновление до 1.7.47
+### Обновление до 1.7.48
 
 Обновите версию в `composer.json`:
 
 ```json
-"kupidonkhv/voyager-fork": "^1.7.47"
+"kupidonkhv/voyager-fork": "^1.7.48"
 ```
 
 Затем выполните:
@@ -403,14 +403,16 @@ composer remove monstrex/voyager-extension kupidonkhv/captcha mews/captcha
 ```bash
 php artisan vendor:publish --tag=voyager-extension-config --force
 php artisan vendor:publish --tag=captcha-config --force
+php artisan vendor:publish --tag=voyager-activity-config --force
 php artisan vendor:publish --tag=voyager-extension-assets --force
 ```
 
-Выполните миграции и установите Галереи:
+Выполните миграции, установите Галереи и журнал активности:
 
 ```bash
 php artisan migrate
 php artisan voyager:gallery:install
+php artisan voyager:activity:install
 ```
 
 Очистите кеши:
