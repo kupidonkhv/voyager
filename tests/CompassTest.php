@@ -58,7 +58,18 @@ class CompassTest extends TestCase
              ->see($info);
     }
 
-    public function testCanExecuteCommand()
+    public function testCanExecuteAllowedCommand()
+    {
+        $this->enableCompass();
+
+        $response = $this->post(route('voyager.compass.index'), [
+            'command' => 'list',
+            'args'    => '',
+        ]);
+        $this->assertStringContainsString('Available commands:', $response->response->content());
+    }
+
+    public function testCannotExecuteCommandOutsideAllowList()
     {
         $this->enableCompass();
 
@@ -66,7 +77,8 @@ class CompassTest extends TestCase
             'command' => 'make:model',
             'args'    => 'TestModel',
         ]);
-        $this->assertStringContainsString('created successfully.', $response->response->content());
+        $this->assertStringContainsString('This command is not allowed.', $response->response->content());
+        $this->assertFileDoesNotExist(base_path('app/Models/TestModel.php'));
     }
 
     public function testCannotExecuteUnknownCommand()
@@ -77,14 +89,41 @@ class CompassTest extends TestCase
             'command' => 'unknown:command',
             'args'    => 'AnArgument',
         ]);
-        $this->assertStringContainsString('The command &quot;unknown:command&quot; does not exist.', $response->response->content());
+        $this->assertStringContainsString('This command is not allowed.', $response->response->content());
     }
 
     public function testCanDeleteLaravelLog()
     {
         $this->enableCompass();
 
+        $response = $this->post(route('voyager.compass.index'), [
+            'del' => base64_encode('laravel.log'),
+        ]);
+        $this->assertEquals(302, $response->response->getStatusCode()); // Redirect
+    }
+
+    public function testCannotDeleteLogWithGet()
+    {
+        $this->enableCompass();
+        $this->logString('keep me');
+
         $response = $this->call('GET', route('voyager.compass.index').'?del='.base64_encode('laravel.log'));
-        $this->assertEquals(302, $response->status()); // Redirect
+        $this->assertEquals(405, $response->status());
+        $this->assertFileExists(storage_path('logs/laravel.log'));
+    }
+
+    public function testCannotReadFileOutsideLogs()
+    {
+        $this->enableCompass();
+
+        $canary = storage_path('audit-compass-canary.txt');
+        file_put_contents($canary, 'AUDIT_COMPASS_CANARY');
+
+        try {
+            $response = $this->call('GET', route('voyager.compass.index').'?download='.base64_encode($canary));
+            $this->assertEquals(404, $response->status());
+        } finally {
+            @unlink($canary);
+        }
     }
 }

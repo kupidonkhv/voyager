@@ -6,10 +6,12 @@ use Exception;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use TCG\Voyager\Activity\ActivityRecorder;
 use TCG\Voyager\Facades\Voyager;
+use TCG\Voyager\Support\SafeUpload;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 
@@ -19,6 +21,59 @@ class VoyagerExtensionController extends BaseController
     protected function activity(): ActivityRecorder
     {
         return app(ActivityRecorder::class);
+    }
+
+    private function routeSlug(Request $request): ?string
+    {
+        $slug = $request->route('dataTypeSlug') ?? $request->input('slug');
+
+        return is_string($slug) && $slug !== '' ? $slug : null;
+    }
+
+    private function authorizeDataType(Request $request, string $ability, ?string $slug = null)
+    {
+        $slug = $slug ?? $this->routeSlug($request);
+
+        if (!$slug) {
+            abort(403);
+        }
+
+        $dataType = Voyager::model('DataType')->where('slug', $slug)->first();
+
+        if (!$dataType) {
+            abort(404);
+        }
+
+        $user = $request->user();
+        $permission = $ability.'_'.($dataType->name ?: $dataType->slug);
+
+        if (!$user || !method_exists($user, 'hasPermission') || !$user->hasPermission($permission)) {
+            abort(403);
+        }
+
+        return $dataType;
+    }
+
+    private function assertMediaAccess(Request $request, $dataType, Media $media, string $ability): void
+    {
+        $modelClass = $dataType->model_name;
+        $morphClass = (new $modelClass)->getMorphClass();
+
+        if ($media->model_type !== $morphClass) {
+            abort(403);
+        }
+
+        $parent = $media->model;
+
+        if (!$parent) {
+            abort(403);
+        }
+
+        $policy = Gate::getPolicyFor($parent);
+
+        if ($policy && !Gate::forUser($request->user())->allows($ability, $parent)) {
+            abort(403);
+        }
     }
 
     /*
@@ -40,6 +95,11 @@ class VoyagerExtensionController extends BaseController
     {
         // GET THE DataType based on the slug
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
+
+        if (!$dataType) {
+            abort(404);
+        }
+
         // Get field meta data and options
         $dataRow = $dataType->editRows->filter(function ($item) use ($field) {
             return $item->field == $field;
@@ -66,14 +126,18 @@ class VoyagerExtensionController extends BaseController
      */
     public function load_image_form(Request $request)
     {
-        $slug = $request->get('slug');
+        $dataType = $this->authorizeDataType($request, 'read');
         $field = $request->get('field');
         $id = $request->get('id');
         $media_file_id = $request->get('media_file_id');
 
-        $row = $this->getDataType($slug, $id, $field);
+        $row = $this->getDataType($dataType->slug, $id, $field);
 
         $file = $row['data']->getMedia($field)->where('id', $media_file_id)->first();
+
+        if ($file) {
+            $this->assertMediaAccess($request, $dataType, $file, 'read');
+        }
 
         return view('voyager-extension::forms.form-ajax', [
             'dataRow' => $row['dataRow'],
@@ -93,9 +157,10 @@ class VoyagerExtensionController extends BaseController
      */
     public function load_group_form(Request $request)
     {
-        try {
+        $dataType = $this->authorizeDataType($request, 'read');
 
-            $slug = $request->get('slug');
+        try {
+            $slug = $dataType->slug;
             $id = $request->get('id');
             $field = $request->get('field');
 
@@ -125,25 +190,42 @@ class VoyagerExtensionController extends BaseController
      */
     public function update_media(Request $request)
     {
-        $model_class = $request->get('model');
+        $dataType = $this->authorizeDataType($request, 'edit');
         $id = $request->get('id');
         $field = $request->get('field');
         $media_file_id = $request->get('media_file_id');
 
-        try {
-            // Load the related Record associated with a medialibrary file
-            $model = app($model_class);
-            $data = $model->find($id);
-            $file = $data->getMedia($field)->where('id', $media_file_id)->first();
+        $dataRow = $dataType->editRows->firstWhere('field', $field);
+        if (!$dataRow) {
+            abort(403);
+        }
 
-            $customFields = $request->except(['model', 'id', 'field', 'media_file_id']);
-            foreach ($customFields as $key => $field) {
-                $file->setCustomProperty($key, $field);
+        $data = app($dataType->model_name)->findOrFail($id);
+        $file = $data->getMedia($field)->where('id', (int) $media_file_id)->first();
+
+        if (!$file) {
+            abort(404);
+        }
+
+        $this->assertMediaAccess($request, $dataType, $file, 'edit');
+
+        $allowedFields = ['title', 'alt', 'description', 'link', 'order'];
+        $extraFields = data_get($dataRow, 'details.extra_fields', []);
+        if (is_array($extraFields) || is_object($extraFields)) {
+            $allowedFields = array_merge($allowedFields, array_keys((array) $extraFields));
+        }
+
+        $customFields = array_intersect_key(
+            $request->except(['model', 'id', 'field', 'media_file_id', '_token']),
+            array_flip($allowedFields)
+        );
+
+        try {
+            foreach ($customFields as $key => $value) {
+                $file->setCustomProperty($key, $value);
             }
             $file->save();
-
         } catch (Exception $error) {
-
             return json_response_with_error(500, $error);
         }
 
@@ -155,26 +237,40 @@ class VoyagerExtensionController extends BaseController
      */
     public function change_media(Request $request)
     {
-        $model_class = $request->get('model');
-        $slug = $request->get('slug');
+        $dataType = $this->authorizeDataType($request, 'edit');
         $id = $request->get('id');
         $field = $request->get('field');
         $media_file_id = $request->get('media_file_id');
 
+        $dataRow = $dataType->editRows->firstWhere('field', $field);
+        if (!$dataRow) {
+            abort(403);
+        }
+
+        $uploaded = $request->file($field);
+        if (!$uploaded) {
+            abort(400);
+        }
+
         try {
+            SafeUpload::assertUploadedFile($uploaded);
+            $extension = SafeUpload::normalizeExtension($uploaded->getClientOriginalExtension());
+            SafeUpload::assertImageExtension($extension);
+            $newFileName = $this->getFileName($uploaded);
+        } catch (\InvalidArgumentException $error) {
+            return json_response_with_error(400, $error);
+        }
 
-            // Load the related Record associated with a medialibrary file
-            $model = app($model_class);
-            $data = $model->find($id);
+        $data = app($dataType->model_name)->findOrFail($id);
+        $old_file = $data->getMedia($field)->where('id', (int) $media_file_id)->first();
 
-            // Load related BREAD Data
-            $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
-            $dataRow = $dataType->editRows->filter(function ($item) use ($field) {
-                return $item->field == $field;
-            })->first();
+        if (!$old_file) {
+            abort(404);
+        }
 
-            // Save OLD Properties
-            $old_file = $data->getMedia($field)->where('id', $media_file_id)->first();
+        $this->assertMediaAccess($request, $dataType, $old_file, 'edit');
+
+        try {
             $old_properties = [];
             $old_properties['title'] = $old_file->getCustomProperty('title');
             $old_properties['alt'] = $old_file->getCustomProperty('alt');
@@ -185,16 +281,15 @@ class VoyagerExtensionController extends BaseController
                 }
             }
 
-            // Add New Image from Request
             $new_file = $data->addMediaFromRequest($field)
                 ->withCustomProperties($old_properties)
-                ->setFileName($this->getFileName($request->file($field)))
+                ->setFileName($newFileName)
                 ->toMediaCollection($field);
 
             $all_files = $data->getMedia($field);
             $new_order = [];
             foreach ($all_files as $key => $item) {
-                if ($item->id === (int)$media_file_id) {
+                if ($item->id === (int) $media_file_id) {
                     $new_order[] = $new_file->id;
                 } else {
                     $new_order[] = $item->id;
@@ -209,7 +304,7 @@ class VoyagerExtensionController extends BaseController
                 'media.replaced',
                 'success',
                 null,
-                $slug,
+                $dataType->slug,
                 [],
                 [
                     'disk' => $new_file->disk,
@@ -222,9 +317,7 @@ class VoyagerExtensionController extends BaseController
 
             $file_name_size = Str::limit($new_file->file_name, 20, ' (...)');
             $file_name_size .= ' <i class="' . ($new_file->size > 100000 ? 'large' : '') . '">' . $new_file->human_readable_size . '</i>';
-
         } catch (Exception $error) {
-
             return json_response_with_error(500, $error);
         }
 
@@ -238,27 +331,37 @@ class VoyagerExtensionController extends BaseController
         ]);
     }
 
-
     /*
      *  Remove media file
      */
     public function remove_media(Request $request)
     {
-
-        $media_ids = $request->get('media_ids');
-
-        if (!$media_ids) {
-            $media_ids = [$request->get('media_file_id')];
+        $dataType = $this->authorizeDataType($request, 'delete');
+        $mediaIds = $request->get('media_ids');
+        if (!$mediaIds) {
+            $mediaIds = [$request->get('media_file_id')];
         }
-
-        $media = Media::whereIn('id', $media_ids)->get();
-
+        if (!is_array($mediaIds)) {
+            $mediaIds = [$mediaIds];
+        }
+        $mediaIds = array_values(array_unique(array_filter(array_map('intval', $mediaIds))));
+        if (!$mediaIds) {
+            abort(400);
+        }
+        $media = Media::whereIn('id', $mediaIds)->get();
+        if ($media->count() !== count($mediaIds)) {
+            abort(404);
+        }
+        foreach ($media as $mediaItem) {
+            $this->assertMediaAccess($request, $dataType, $mediaItem, 'delete');
+        }
         try {
-            Media::destroy($media_ids);
+            foreach ($media as $mediaItem) {
+                $mediaItem->delete();
+            }
         } catch (Exception $error) {
             return json_response_with_error(500, $error);
         }
-
         foreach ($media as $mediaItem) {
             $this->activity()->recordEventSafe(
                 'media.deleted',
@@ -275,18 +378,27 @@ class VoyagerExtensionController extends BaseController
                 (string) $mediaItem->getKey()
             );
         }
-
         return json_response_with_success(200, __('voyager-extension::bread.media_removed'));
     }
-
 
     /*
      * Sort Media files
      */
     public function sort_media(Request $request)
     {
+        $dataType = $this->authorizeDataType($request, 'edit');
         $files_ids_order = $request->get('files_ids_order');
-
+        if (!is_array($files_ids_order) || !$files_ids_order) {
+            abort(400);
+        }
+        $files_ids_order = array_values(array_unique(array_map('intval', $files_ids_order)));
+        $media = Media::whereIn('id', $files_ids_order)->get();
+        if ($media->count() !== count($files_ids_order)) {
+            abort(404);
+        }
+        foreach ($media as $mediaItem) {
+            $this->assertMediaAccess($request, $dataType, $mediaItem, 'edit');
+        }
         try {
             Media::setNewOrder($files_ids_order);
             return json_response_with_success(200, __('voyager-extension::bread.media_sorted'));
@@ -303,22 +415,20 @@ class VoyagerExtensionController extends BaseController
      */
     public function assets(Request $request)
     {
-        $assetsRoot = dirname(__DIR__, 3).'/publishable/assets/vendor/voyager-extension/';
+        $requested = urldecode((string) $request->path);
 
         try {
             if (class_exists(\League\Flysystem\Util::class)) {
-                $path = $assetsRoot.\League\Flysystem\Util::normalizeRelativePath(urldecode($request->path));
+                $requested = \League\Flysystem\Util::normalizeRelativePath($requested);
             } elseif (class_exists(\League\Flysystem\WhitespacePathNormalizer::class)) {
                 $normalizer = new \League\Flysystem\WhitespacePathNormalizer();
-                $path = $assetsRoot.$normalizer->normalizePath(urldecode($request->path));
-            } else {
-                $path = $assetsRoot.urldecode($request->path);
+                $requested = $normalizer->normalizePath($requested);
             }
         } catch (\LogicException $e) {
             abort(404);
         }
 
-        return $this->assets_file($path);
+        return $this->assets_file($this->resolveAssetPath($requested));
     }
 
     /*
@@ -329,9 +439,46 @@ class VoyagerExtensionController extends BaseController
     public function assets_regular(Request $request)
     {
         $alias = $request->route('alias');
-        $path = dirname(__DIR__, 3).'/publishable/assets/vendor/voyager-extension/'.ltrim(urldecode((string) $alias), '/');
 
-        return $this->assets_file($path);
+        return $this->assets_file($this->resolveAssetPath(urldecode((string) $alias)));
+    }
+
+    private function resolveAssetPath(string $relative): string
+    {
+        $relative = str_replace(["\0", '\\'], ['', '/'], $relative);
+        $relative = ltrim($relative, '/');
+
+        if ($relative === '') {
+            abort(404);
+        }
+
+        foreach (explode('/', $relative) as $segment) {
+            if ($segment === '..' || $segment === '.') {
+                abort(404);
+            }
+        }
+
+        $root = realpath(dirname(__DIR__, 3).'/publishable/assets/vendor/voyager-extension');
+
+        if ($root === false) {
+            abort(404);
+        }
+
+        $path = realpath($root.DIRECTORY_SEPARATOR.$relative);
+        $prefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        if ($path === false || !is_file($path) || !str_starts_with($path, $prefix)) {
+            abort(404);
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        if (in_array($extension, SafeUpload::blockedExtensions(), true)
+            || in_array($extension, ['htaccess', 'htpasswd', 'env'], true)) {
+            abort(404);
+        }
+
+        return $path;
     }
 
     private function assets_file($path)
@@ -357,11 +504,15 @@ class VoyagerExtensionController extends BaseController
 
     private function getFileName($file)
     {
-        $fullName = $file->getClientOriginalName();
-        $filename = pathinfo($fullName, PATHINFO_FILENAME);
-        $extension = pathinfo($fullName, PATHINFO_EXTENSION);
+        $extension = SafeUpload::normalizeExtension($file->getClientOriginalExtension());
+        SafeUpload::assertImageExtension($extension);
 
-        return config('voyager-extension.slug_filenames')? Str::slug($filename) . '.' . $extension : $fullName;
+        $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+        if (config('voyager-extension.slug_filenames')) {
+            $filename = Str::slug($filename);
+        }
+
+        return SafeUpload::sanitizeBaseName($filename, $extension);
     }
-
 }

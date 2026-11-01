@@ -250,12 +250,12 @@
                                     {{ $setting->display_name }} @if(config('voyager.show_dev_tips'))<code>setting('{{ $setting->key }}')</code>@endif
                                 </h3>
                                 <div class="panel-actions">
-                                    <a href="{{ route('voyager.settings.move_up', $setting->id) }}">
+                                    <button type="submit" form="setting-move-up-{{ $setting->id }}" class="btn btn-link p-0" style="border:0;background:none">
                                         <i class="sort-icons voyager-sort-asc"></i>
-                                    </a>
-                                    <a href="{{ route('voyager.settings.move_down', $setting->id) }}">
+                                    </button>
+                                    <button type="submit" form="setting-move-down-{{ $setting->id }}" class="btn btn-link p-0" style="border:0;background:none">
                                         <i class="sort-icons voyager-sort-desc"></i>
-                                    </a>
+                                    </button>
                                     @can('delete', Voyager::model('Setting'))
                                     <i class="voyager-trash"
                                        data-id="{{ $setting->id }}"
@@ -376,6 +376,17 @@
             </div>
             <button type="submit" class="btn btn-primary pull-right">{{ __('voyager::settings.save') }}</button>
         </form>
+
+        @foreach($settings as $group_settings)
+            @foreach($group_settings as $setting)
+                <form id="setting-move-up-{{ $setting->id }}" method="POST" action="{{ route('voyager.settings.move_up', $setting->id) }}" style="display:none">
+                    @csrf
+                </form>
+                <form id="setting-move-down-{{ $setting->id }}" method="POST" action="{{ route('voyager.settings.move_down', $setting->id) }}" style="display:none">
+                    @csrf
+                </form>
+            @endforeach
+        @endforeach
 
         <div style="clear:both"></div>
 

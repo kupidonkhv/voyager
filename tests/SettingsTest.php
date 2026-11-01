@@ -34,6 +34,17 @@ class SettingsTest extends TestCase
              ]);
     }
 
+    public function testCannotMoveSettingWithGet()
+    {
+        $setting = Setting::where('key', 'site.title')->firstOrFail();
+        $order = $setting->order;
+
+        $response = $this->call('GET', route('voyager.settings.move_up', $setting->id));
+
+        $this->assertEquals(405, $response->getStatusCode());
+        $this->assertEquals($order, $setting->fresh()->order);
+    }
+
     public function testCanCreateSetting()
     {
         $this->visitRoute('voyager.settings.index')
@@ -79,7 +90,7 @@ class SettingsTest extends TestCase
     {
         $setting = Setting::where('order', '!=', 1)->first();
 
-        $this->call('GET', route('voyager.settings.move_up', $setting->id));
+        $this->call('POST', route('voyager.settings.move_up', $setting->id));
 
         $this->seeInDatabase('settings', [
             'id'    => $setting->id,
@@ -91,7 +102,7 @@ class SettingsTest extends TestCase
     {
         $setting = Setting::where('order', '!=', 1)->first();
 
-        $this->call('GET', route('voyager.settings.move_down', $setting->id));
+        $this->call('POST', route('voyager.settings.move_down', $setting->id));
 
         $this->seeInDatabase('settings', [
             'id'    => $setting->id,

@@ -55,11 +55,22 @@
       <a href="?download={{ base64_encode($current_file) }}"><span class="glyphicon glyphicon-download-alt"></span>
         {{ __('voyager::compass.logs.download_file') }}</a>
       -
-      <a id="delete-log" href="?del={{ base64_encode($current_file) }}"><span
-            class="glyphicon glyphicon-trash"></span> {{ __('voyager::compass.logs.delete_file') }}</a>
+      <form id="delete-log" method="POST" action="{{ route('voyager.compass.post') }}" style="display:inline">
+        @csrf
+        <input type="hidden" name="del" value="{{ base64_encode($current_file) }}">
+        <button type="submit" class="btn btn-link p-0" style="border:0;background:none;padding:0">
+          <span class="glyphicon glyphicon-trash"></span> {{ __('voyager::compass.logs.delete_file') }}
+        </button>
+      </form>
       @if(count($files) > 1)
         -
-        <a id="delete-all-log" href="?delall=true"><span class="glyphicon glyphicon-trash"></span> {{ __('voyager::compass.logs.delete_all_files') }}</a>
+        <form id="delete-all-log" method="POST" action="{{ route('voyager.compass.post') }}" style="display:inline">
+          @csrf
+          <input type="hidden" name="delall" value="1">
+          <button type="submit" class="btn btn-link p-0" style="border:0;background:none;padding:0">
+            <span class="glyphicon glyphicon-trash"></span> {{ __('voyager::compass.logs.delete_all_files') }}
+          </button>
+        </form>
       @endif
     @endif
   </div>

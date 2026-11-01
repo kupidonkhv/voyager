@@ -74,6 +74,21 @@ class GalleryTest extends TestCase
         ]);
     }
 
+    public function testHtmlFileWithImageContentIsRejected()
+    {
+        $gallery = Gallery::create([
+            'title'      => 'Validation gallery',
+            'dimensions' => '400x300',
+        ]);
+
+        $response = $this->call('POST', route('voyager.galleries.upload-media', $gallery), [], [], [
+            'file' => UploadedFile::fake()->image('payload.html', 20, 20),
+        ]);
+
+        $this->assertContains($response->getStatusCode(), [302, 422]);
+        $this->assertCount(0, $gallery->getMedia('images'));
+    }
+
     public function testImagesCanBeUploadedSortedDescribedAndDeleted()
     {
         $gallery = Gallery::create([

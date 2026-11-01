@@ -264,17 +264,17 @@ class VoyagerExtensionServiceProvider extends ServiceProvider
             $router->get( '/records', $extensionVoyagerController . '@getRecords')->name('ext-records-get');
 
             foreach (Voyager::model('DataType')::all() as $dataType) {
-                $router->post($dataType->slug . '/sort/media', $extensionController . '@sort_media')->name($dataType->slug . '.ext-media.sort');
-                $router->post($dataType->slug . '/update/media', $extensionController . '@update_media')->name($dataType->slug . '.ext-media.update');
-                $router->post($dataType->slug . '/change/media', $extensionController . '@change_media')->name($dataType->slug . '.ext-media.change');
-                $router->post($dataType->slug . '/remove/media', $extensionController . '@remove_media')->name($dataType->slug . '.ext-media.remove');
-                $router->post($dataType->slug . '/form/media', $extensionController . '@load_image_form')->name($dataType->slug . '.ext-media.form');
+                $router->post($dataType->slug . '/sort/media', $extensionController . '@sort_media')->name($dataType->slug . '.ext-media.sort')->defaults('dataTypeSlug', $dataType->slug);
+                $router->post($dataType->slug . '/update/media', $extensionController . '@update_media')->name($dataType->slug . '.ext-media.update')->defaults('dataTypeSlug', $dataType->slug);
+                $router->post($dataType->slug . '/change/media', $extensionController . '@change_media')->name($dataType->slug . '.ext-media.change')->defaults('dataTypeSlug', $dataType->slug);
+                $router->post($dataType->slug . '/remove/media', $extensionController . '@remove_media')->name($dataType->slug . '.ext-media.remove')->defaults('dataTypeSlug', $dataType->slug);
+                $router->post($dataType->slug . '/form/media', $extensionController . '@load_image_form')->name($dataType->slug . '.ext-media.form')->defaults('dataTypeSlug', $dataType->slug);
 
                 $router->post($dataType->slug . '/{id}/clone', $extensionVoyagerController . '@clone')->name($dataType->slug . '.clone');
                 $router->post($dataType->slug . '/{id}/record/update', $extensionVoyagerController . '@recordUpdate')->name($dataType->slug . '.ext-record-update');
                 $router->post($dataType->slug . '/records/order', $extensionVoyagerController . '@recordsOrder')->name($dataType->slug . '.ext-records-order');
 
-                $router->get($dataType->slug . '/{id}/record/group', $extensionController . '@load_group_form')->name($dataType->slug . '.ext-group.form');
+                $router->get($dataType->slug . '/{id}/record/group', $extensionController . '@load_group_form')->name($dataType->slug . '.ext-group.form')->defaults('dataTypeSlug', $dataType->slug);
             }
         } catch (\InvalidArgumentException $e) {
             throw new \InvalidArgumentException("Custom routes hasn't been configured because: " . $e->getMessage(), 1);
