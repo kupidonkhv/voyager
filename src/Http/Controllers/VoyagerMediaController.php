@@ -4,10 +4,12 @@ namespace TCG\Voyager\Http\Controllers;
 
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use TCG\Voyager\Support\Image as VoyagerImage;
+use TCG\Voyager\Support\SafeUpload;
 use TCG\Voyager\Events\MediaFileAdded;
 use TCG\Voyager\Facades\Voyager;
 
@@ -44,13 +46,13 @@ class VoyagerMediaController extends Controller
             $thumbnail_names = array_column(($options['thumbnails'] ?? []), 'name');
         }
 
-        $folder = $request->folder;
-
-        if ($folder == '/') {
-            $folder = '';
+        try {
+            $folder = SafeUpload::safeRelativePath((string) $request->folder);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
         }
 
-        $dir = $this->directory.$folder;
+        $dir = ltrim($this->directory.'/'.$folder, '/');
 
         $files = [];
         if (class_exists(\League\Flysystem\Plugin\ListWith::class)) {
@@ -115,7 +117,12 @@ class VoyagerMediaController extends Controller
         // Check permission
         $this->authorize('browse_media');
 
-        $new_folder = $request->new_folder;
+        try {
+            $new_folder = SafeUpload::safeRelativePath((string) $request->new_folder, false);
+        } catch (\InvalidArgumentException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
         $success = false;
         $error = '';
 
@@ -140,13 +147,32 @@ class VoyagerMediaController extends Controller
         // Check permission
         $this->authorize('browse_media');
 
-        $path = str_replace('//', '/', Str::finish($request->path, '/'));
+        try {
+            $path = SafeUpload::safeRelativePath((string) $request->path);
+            $path = $path === '' ? '' : $path.'/';
+        } catch (\InvalidArgumentException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
         $success = true;
         $error = '';
+        $files = $request->get('files');
 
-        foreach ($request->get('files') as $file) {
-            $file_path = $path.$file['name'];
-            $isFolder = $file['type'] == 'folder';
+        if (!is_array($files)) {
+            return ['success' => false, 'error' => 'Invalid file list.'];
+        }
+
+        foreach ($files as $file) {
+            try {
+                $name = SafeUpload::safeRelativePath((string) ($file['name'] ?? ''), false);
+            } catch (\InvalidArgumentException $e) {
+                $success = false;
+                $error = $e->getMessage();
+                continue;
+            }
+
+            $file_path = $path.$name;
+            $isFolder = ($file['type'] ?? '') == 'folder';
             $deleted = $isFolder
                 ? Storage::disk($this->filesystem)->deleteDirectory($file_path)
                 : Storage::disk($this->filesystem)->delete($file_path);
@@ -174,21 +200,34 @@ class VoyagerMediaController extends Controller
     {
         // Check permission
         $this->authorize('browse_media');
-        $path = str_replace('//', '/', Str::finish($request->path, '/'));
-        $dest = str_replace('//', '/', Str::finish($request->destination, '/'));
-        if (strpos($dest, '/../') !== false) {
-            $dest = substr($path, 0, -1);
-            $dest = substr($dest, 0, strripos($dest, '/') + 1);
+        try {
+            $path = SafeUpload::safeRelativePath((string) $request->path);
+            $dest = SafeUpload::safeRelativePath((string) $request->destination);
+        } catch (\InvalidArgumentException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-        $dest = str_replace('//', '/', Str::finish($dest, '/'));
+
+        $path = $path === '' ? '' : $path.'/';
+        $dest = $dest === '' ? '' : $dest.'/';
 
         $success = true;
         $error = '';
+        $files = $request->get('files');
 
-        foreach ($request->get('files') as $file) {
-            $old_path = $path.$file['name'];
-            $new_path = $dest.$file['name'];
-            $isFolder = $file['type'] == 'folder';
+        if (!is_array($files)) {
+            return ['success' => false, 'error' => 'Invalid file list.'];
+        }
+
+        foreach ($files as $file) {
+            try {
+                $name = SafeUpload::safeRelativePath((string) ($file['name'] ?? ''), false);
+            } catch (\InvalidArgumentException $e) {
+                return ['success' => false, 'error' => $e->getMessage()];
+            }
+
+            $old_path = $path.$name;
+            $new_path = $dest.$name;
+            $isFolder = ($file['type'] ?? '') == 'folder';
 
             try {
                 Storage::disk($this->filesystem)->move($old_path, $new_path);
@@ -224,19 +263,26 @@ class VoyagerMediaController extends Controller
         $this->authorize('browse_media');
 
         $folderLocation = $request->folder_location;
-        $filename = $request->filename;
-        $newFilename = $request->new_filename;
+        $filename = basename(str_replace('\\', '/', (string) $request->filename));
+        $newFilename = basename(str_replace('\\', '/', (string) $request->new_filename));
         $success = false;
         $error = false;
+
+        try {
+            $folderLocation = is_array($folderLocation) ? implode('/', $folderLocation) : (string) $folderLocation;
+            $folderLocation = SafeUpload::safeRelativePath($folderLocation);
+        } catch (\InvalidArgumentException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
+        if ($filename === '' || $newFilename === '' || str_contains($filename, '..') || str_contains($newFilename, '..')) {
+            return ['success' => false, 'error' => 'Invalid filename.'];
+        }
 
         if (pathinfo($filename)['extension'] !== pathinfo($newFilename)['extension']) {
             $error = __('voyager::media.error_renaming_ext');
         } else {
-            if (is_array($folderLocation)) {
-                $folderLocation = rtrim(implode('/', $folderLocation), '/');
-            }
-
-            $location = "{$this->directory}/{$folderLocation}";
+            $location = $this->directory.($folderLocation === '' ? '' : '/'.$folderLocation);
 
             if (!Storage::disk($this->filesystem)->exists("{$location}/{$newFilename}")) {
                 if (Storage::disk($this->filesystem)->move("{$location}/{$filename}", "{$location}/{$newFilename}")) {
@@ -262,25 +308,57 @@ class VoyagerMediaController extends Controller
         // Check permission
         $this->authorize('browse_media');
 
-        $extension = $request->file->getClientOriginalExtension();
-        $name = Str::replaceLast('.'.$extension, '', $request->file->getClientOriginalName());
+        $file = $request->file('file');
+
+        if (!$file instanceof UploadedFile && $request->input('file') instanceof UploadedFile) {
+            $file = $request->input('file');
+        }
+
+        if (!$file instanceof UploadedFile) {
+            return response()->json([
+                'success' => false,
+                'message' => __('voyager::media.error_uploading'),
+                'path'    => '',
+            ]);
+        }
+
+        $extension = SafeUpload::normalizeExtension($file->getClientOriginalExtension());
         $details = json_decode($request->get('details') ?? '{}');
-        $absolute_path = Storage::disk($this->filesystem)->path($request->upload_path);
 
         try {
+            $uploadPath = SafeUpload::safeRelativePath((string) $request->get('upload_path', ''));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'path'    => '',
+            ]);
+        }
+
+        $storedPath = null;
+        $createdFiles = [];
+
+        try {
+            SafeUpload::assertUploadedFile($file);
+            SafeUpload::assertAllowedExtension($extension);
+
             $realPath = Storage::disk($this->filesystem)->path('/');
 
             $allowedMimeTypes = config('voyager.media.allowed_mimetypes', '*');
-            if ($allowedMimeTypes != '*' && (is_array($allowedMimeTypes) && !in_array($request->file->getMimeType(), $allowedMimeTypes))) {
+            if ($allowedMimeTypes != '*' && (!is_array($allowedMimeTypes) || !in_array($file->getMimeType(), $allowedMimeTypes))) {
                 throw new Exception(__('voyager::generic.mimetype_not_allowed'));
             }
 
+            $name = Str::replaceLast('.'.$extension, '', $file->getClientOriginalName());
+
             if (!$request->has('filename') || $request->get('filename') == 'null') {
-                while (Storage::disk($this->filesystem)->exists(Str::finish($request->upload_path, '/').$name.'.'.$extension, $this->filesystem)) {
+                while (Storage::disk($this->filesystem)->exists(
+                    Str::finish($uploadPath, '/').SafeUpload::sanitizeBaseName($name, $extension)
+                )) {
                     $name = get_file_name($name);
                 }
             } else {
-                $name = str_replace('{uid}', Auth::user()->getKey(), $request->get('filename'));
+                $name = str_replace('{uid}', Auth::user()->getKey(), (string) $request->get('filename'));
                 if (Str::contains($name, '{date:')) {
                     $name = preg_replace_callback('/\{date:([^\/\}]*)\}/', function ($date) {
                         return \Carbon\Carbon::now()->format($date[1]);
@@ -288,13 +366,15 @@ class VoyagerMediaController extends Controller
                 }
                 if (Str::contains($name, '{random:')) {
                     $name = preg_replace_callback('/\{random:([0-9]+)\}/', function ($random) {
-                        return Str::random($random[1]);
+                        return Str::random((int) $random[1]);
                     }, $name);
                 }
             }
 
-            $file = $request->file->storeAs($request->upload_path, $name.'.'.$extension, $this->filesystem);
-            $file = preg_replace('#/+#', '/', $file);
+            $storedName = SafeUpload::sanitizeBaseName($name, $extension);
+            $storedPath = $file->storeAs($uploadPath, $storedName, $this->filesystem);
+            $storedPath = preg_replace('#/+#', '/', $storedPath);
+            $createdFiles[] = $storedPath;
 
             $imageMimeTypes = [
                 'image/jpeg',
@@ -303,12 +383,12 @@ class VoyagerMediaController extends Controller
                 'image/bmp',
                 'image/svg+xml',
             ];
-            if (in_array($request->file->getMimeType(), $imageMimeTypes)) {
-                $content = Storage::disk($this->filesystem)->get($file);
+            if (in_array($file->getMimeType(), $imageMimeTypes)) {
+                $content = Storage::disk($this->filesystem)->get($storedPath);
                 $image = VoyagerImage::read($content);
 
-                if ($request->file->getClientOriginalExtension() == 'gif') {
-                    copy($request->file->getRealPath(), $realPath.$file);
+                if ($extension == 'gif') {
+                    copy($file->getRealPath(), $realPath.$storedPath);
                 } else {
                     $image = $image->orient();
                     // Generate thumbnails
@@ -344,30 +424,44 @@ class VoyagerMediaController extends Controller
                             ) {
                                 $thumbnail = $this->addWatermarkToImage($thumbnail, $details->watermark);
                             }
-                            $thumbnail_file = $request->upload_path.$name.'-'.($thumbnail_data->name ?? 'thumbnail').'.'.$extension;
-                            Storage::disk($this->filesystem)->put($thumbnail_file, VoyagerImage::encode($thumbnail, $extension, ($details->quality ?? 90))->toString());
+                            $thumbnailName = dirname($storedPath).'/'.pathinfo($storedPath, PATHINFO_FILENAME)
+                                .'-'.($thumbnail_data->name ?? 'thumbnail').'.'.$extension;
+                            Storage::disk($this->filesystem)->put(
+                                $thumbnailName,
+                                VoyagerImage::encode($thumbnail, $extension, ($details->quality ?? 90))->toString()
+                            );
+                            $createdFiles[] = $thumbnailName;
                         }
                     }
                     // Add watermark to image
                     if (property_exists($details, 'watermark') && property_exists($details->watermark, 'source')) {
                         $image = $this->addWatermarkToImage($image, $details->watermark);
                     }
-                    Storage::disk($this->filesystem)->put($file, VoyagerImage::encode($image, $extension, ($details->quality ?? 90))->toString());
+                    Storage::disk($this->filesystem)->put($storedPath, VoyagerImage::encode($image, $extension, ($details->quality ?? 90))->toString());
                 }
             }
 
             $success = true;
             $message = __('voyager::media.success_uploaded_file');
-            $path = preg_replace('/^public\//', '', $file);
+            $path = preg_replace('/^public\//', '', $storedPath);
 
             event(new MediaFileAdded($path));
 
             $this->activityRecordMedia('media.uploaded', null, 'media', [
                 'disk' => $this->filesystem,
                 'path' => $path,
-                'size' => $request->file->getSize(),
+                'size' => $file->getSize(),
             ]);
         } catch (Exception $e) {
+            $disk = Storage::disk($this->filesystem);
+            foreach (array_unique($createdFiles) as $createdFile) {
+                try {
+                    $disk->delete($createdFile);
+                } catch (\Throwable $ignored) {
+                    // Best-effort cleanup must not hide the original upload error.
+                }
+            }
+
             $success = false;
             $message = $e->getMessage();
             $path = '';
@@ -388,16 +482,23 @@ class VoyagerMediaController extends Controller
         $width = $request->get('width');
 
         $realPath = Storage::disk($this->filesystem)->path('/');
-        $originImagePath = $request->upload_path.'/'.$request->originImageName;
-        $originImagePath = preg_replace('#/+#', '/', $originImagePath);
+        $originImageName = basename(str_replace('\\', '/', (string) $request->originImageName));
+
+        try {
+            $uploadPath = SafeUpload::safeRelativePath((string) $request->upload_path);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        $originImagePath = ltrim($uploadPath.'/'.$originImageName, '/');
 
         try {
             if ($createMode) {
                 // create a new image with the cpopped data
-                $fileNameParts = explode('.', $request->originImageName);
+                $fileNameParts = explode('.', $originImageName);
                 array_splice($fileNameParts, count($fileNameParts) - 1, 0, 'cropped_'.time());
                 $newImageName = implode('.', $fileNameParts);
-                $destImagePath = preg_replace('#/+#', '/', $request->upload_path.'/'.$newImageName);
+                $destImagePath = ltrim($uploadPath.'/'.$newImageName, '/');
             } else {
                 // override the original image
                 $destImagePath = $originImagePath;

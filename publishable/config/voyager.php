@@ -90,6 +90,15 @@ return [
             'image/png',
             'image/webp',
             'image/gif',
+            'image/bmp',
+        ],
+        'accepted_extensions'     => [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+            'bmp',
         ],
     ],
 
@@ -245,6 +254,22 @@ return [
     // Activate compass when environment is NOT local
     'compass_in_production' => false,
 
+    // Artisan commands that may be executed from Compass. Add explicit
+    // command names here instead of allowing arbitrary input.
+    'compass' => [
+        'allowed_commands' => [
+            'list',
+            'about',
+            'route:list',
+            'migrate:status',
+            'cache:clear',
+            'config:clear',
+            'route:clear',
+            'view:clear',
+            'optimize:clear',
+        ],
+    ],
+
     'media' => [
         // The allowed mimetypes to be uploaded through the media-manager.
         // 'allowed_mimetypes' => '*', //All types can be uploaded
@@ -254,6 +279,12 @@ return [
           'image/gif',
           'image/bmp',
           'video/mp4',
+        ],
+        // File extensions that must never be stored by the media manager.
+        'blocked_extensions' => [
+            'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht',
+            'phps', 'phar', 'cgi', 'pl', 'py', 'sh', 'bash', 'exe', 'bat',
+            'cmd', 'com', 'htaccess', 'htpasswd', 'env',
         ],
         //Path for media-manager. Relative to the filesystem.
         'path'                => '/',

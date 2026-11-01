@@ -121,16 +121,18 @@ if (\Illuminate\Support\Str::startsWith(Auth::user()->avatar, 'http://') || \Ill
 
 <script>
     @if(Session::has('alerts'))
-        let alerts = {!! json_encode(Session::get('alerts')) !!};
+        let alerts = {!! json_encode(Session::get('alerts'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
         helpers.displayAlerts(alerts, toastr);
     @endif
 
     @if(Session::has('message'))
 
     // TODO: change Controllers to use AlertsMessages trait... then remove this
-    var alertType = {!! json_encode(Session::get('alert-type', 'info')) !!};
-    var alertMessage = {!! json_encode(Session::get('message')) !!};
+    var alertType = {!! json_encode(Session::get('alert-type', 'info'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
+    var alertMessage = {!! json_encode(Session::get('message'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
     var alerter = toastr[alertType];
+
+    toastr.options.escapeHtml = true;
 
     if (alerter) {
         alerter(alertMessage);

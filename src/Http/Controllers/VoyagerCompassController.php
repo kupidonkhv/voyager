@@ -30,7 +30,11 @@ class VoyagerCompassController extends Controller
 
         if ($this->request->input('log')) {
             $active_tab = 'logs';
-            LogViewer::setFile(base64_decode($this->request->input('log')));
+            try {
+                LogViewer::setFile($this->decodeLogPath($this->request->input('log')));
+            } catch (\Exception $e) {
+                abort(404);
+            }
         }
 
         if ($this->request->input('logs')) {
@@ -40,16 +44,25 @@ class VoyagerCompassController extends Controller
         if ($this->request->input('download')) {
             $active_tab = 'logs';
 
-            return $this->download(LogViewer::pathToLogFile(base64_decode($this->request->input('download'))));
+            return $this->download($this->logPath($this->request->input('download')));
         } elseif ($this->request->has('del')) {
+            if (!$this->request->isMethod('post')) {
+                abort(405);
+            }
+
             $active_tab = 'logs';
-            app('files')->delete(LogViewer::pathToLogFile(base64_decode($this->request->input('del'))));
+            $logPath = $this->logPath($this->request->input('del'));
+            app('files')->delete($logPath);
 
             return redirect($this->request->url().'?logs=true')->with([
-                'message'    => __('voyager::compass.logs.delete_success').' '.base64_decode($this->request->input('del')),
+                'message'    => __('voyager::compass.logs.delete_success').' '.basename($logPath),
                 'alert-type' => 'success',
             ]);
         } elseif ($this->request->has('delall')) {
+            if (!$this->request->isMethod('post')) {
+                abort(405);
+            }
+
             $active_tab = 'logs';
             foreach (LogViewer::getFiles(true) as $file) {
                 app('files')->delete(LogViewer::pathToLogFile($file));
@@ -63,13 +76,19 @@ class VoyagerCompassController extends Controller
 
         $artisan_output = '';
 
-        if ($request->isMethod('post')) {
-            $command = $request->command;
-            $args = $request->args;
-            $args = (isset($args)) ? ' '.$args : '';
+        if ($request->isMethod('post') && $request->filled('command')) {
+            $command = trim((string) $request->input('command'));
 
             try {
-                Artisan::call($command.$args);
+                if (!preg_match('/^[A-Za-z0-9:_-]+$/', $command)) {
+                    throw new \InvalidArgumentException('Invalid command name.');
+                }
+
+                if (!$this->isCommandAllowed($command)) {
+                    throw new \InvalidArgumentException('This command is not allowed.');
+                }
+
+                Artisan::call($command, $this->parseArtisanArguments((string) $request->input('args', '')));
                 $artisan_output = Artisan::output();
             } catch (Exception $e) {
                 $artisan_output = $e->getMessage();
@@ -87,6 +106,92 @@ class VoyagerCompassController extends Controller
         return view('voyager::compass.index', compact('logs', 'files', 'current_file', 'active_tab', 'commands', 'artisan_output'))->with($message);
     }
 
+    private function logPath($encoded): string
+    {
+        $decoded = base64_decode((string) $encoded, true);
+
+        try {
+            return LogViewer::pathToLogFile($decoded);
+        } catch (\Exception $e) {
+            abort(404);
+        }
+    }
+
+    private function decodeLogPath($encoded): string
+    {
+        $decoded = base64_decode((string) $encoded, true);
+
+        if ($decoded === false) {
+            abort(404);
+        }
+
+        return $decoded;
+    }
+
+    private function allowedCommands(): array
+    {
+        $allowed = config('voyager.compass.allowed_commands', [
+            'list',
+            'about',
+            'route:list',
+            'migrate:status',
+            'cache:clear',
+            'config:clear',
+            'route:clear',
+            'view:clear',
+            'optimize:clear',
+        ]);
+
+        return is_array($allowed) ? array_values(array_map('strval', $allowed)) : [];
+    }
+
+    private function isCommandAllowed(string $command): bool
+    {
+        $allowed = $this->allowedCommands();
+
+        return in_array('*', $allowed, true) || in_array($command, $allowed, true);
+    }
+
+    private function parseArtisanArguments(string $args): array
+    {
+        if (trim($args) === '') {
+            return [];
+        }
+
+        preg_match_all('/"([^"]*)"|\'([^\']*)\'|(\S+)/', $args, $matches, PREG_SET_ORDER);
+
+        $parameters = [];
+
+        foreach ($matches as $match) {
+            $token = $match[1] !== '' ? stripcslashes($match[1]) : ($match[2] !== '' ? stripcslashes($match[2]) : $match[3]);
+
+            if ($token === '') {
+                continue;
+            }
+
+            if (str_starts_with($token, '--')) {
+                $option = substr($token, 2);
+
+                if ($option === '') {
+                    continue;
+                }
+
+                if (str_contains($option, '=')) {
+                    [$key, $value] = explode('=', $option, 2);
+                    $parameters['--'.$key] = $value;
+                } else {
+                    $parameters['--'.$option] = true;
+                }
+
+                continue;
+            }
+
+            $parameters[] = $token;
+        }
+
+        return $parameters;
+    }
+
     private function getArtisanCommands()
     {
         Artisan::call('list');
@@ -95,6 +200,13 @@ class VoyagerCompassController extends Controller
         $artisan_output = Artisan::output();
         $artisan_output = $this->cleanArtisanOutput($artisan_output);
         $commands = $this->getCommandsFromOutput($artisan_output);
+        $allowed = $this->allowedCommands();
+
+        if (!in_array('*', $allowed, true)) {
+            $commands = array_values(array_filter($commands, function ($command) use ($allowed) {
+                return in_array($command->name, $allowed, true);
+            }));
+        }
 
         return $commands;
     }
@@ -212,20 +324,40 @@ class LogViewer
      */
     public static function pathToLogFile($file)
     {
-        $logsPath = storage_path('logs');
-
-        if (app('files')->exists($file)) { // try the absolute path
-            return $file;
-        }
-
-        $file = $logsPath.'/'.$file;
-
-        // check if requested file is really in the logs directory
-        if (dirname($file) !== $logsPath) {
+        if (!is_string($file) || $file === '' || str_contains($file, "\0")) {
             throw new \Exception('No such log file');
         }
 
-        return $file;
+        $logsPath = realpath(storage_path('logs'));
+
+        if ($logsPath === false || !is_dir($logsPath)) {
+            throw new \Exception('No such log file');
+        }
+
+        $candidate = self::isAbsolutePath($file)
+            ? $file
+            : $logsPath.DIRECTORY_SEPARATOR.$file;
+
+        $realPath = realpath($candidate);
+
+        if ($realPath === false || !is_file($realPath)) {
+            throw new \Exception('No such log file');
+        }
+
+        $logPrefix = rtrim($logsPath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        if (!str_starts_with($realPath, $logPrefix)) {
+            throw new \Exception('No such log file');
+        }
+
+        return $realPath;
+    }
+
+    private static function isAbsolutePath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\\\')
+            || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
     }
 
     /**

@@ -155,10 +155,20 @@ class VoyagerGalleryController extends VoyagerBaseController
             'image/png',
             'image/webp',
             'image/gif',
+            'image/bmp',
+        ]));
+
+        $extensions = implode(',', config('voyager.gallery.accepted_extensions', [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+            'bmp',
         ]));
 
         $request->validate([
-            'file' => ['required', 'image', 'mimetypes:'.$mimeTypes, 'max:'.(int) config('voyager.gallery.max_upload_size', 10240)],
+            'file' => ['required', 'image', 'mimetypes:'.$mimeTypes, 'mimes:'.$extensions, 'max:'.(int) config('voyager.gallery.max_upload_size', 10240)],
         ]);
 
         $media = $gallery->addMedia($request->file('file'))
@@ -296,11 +306,21 @@ class VoyagerGalleryController extends VoyagerBaseController
             'image/png',
             'image/webp',
             'image/gif',
+            'image/bmp',
+        ]));
+
+        $extensions = implode(',', config('voyager.gallery.accepted_extensions', [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+            'bmp',
         ]));
 
         $request->validate([
             'media'   => 'array',
-            'media.*' => ['image', 'mimetypes:'.$mimeTypes, 'max:'.(int) config('voyager.gallery.max_upload_size', 10240)],
+            'media.*' => ['image', 'mimetypes:'.$mimeTypes, 'mimes:'.$extensions, 'max:'.(int) config('voyager.gallery.max_upload_size', 10240)],
         ]);
     }
 
