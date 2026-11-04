@@ -389,6 +389,8 @@ class VoyagerBreadController extends Controller
      */
     public function deleteRelationship($id)
     {
+        $this->authorize('browse_bread');
+
         Voyager::model('DataRow')->destroy($id);
 
         return back()->with([

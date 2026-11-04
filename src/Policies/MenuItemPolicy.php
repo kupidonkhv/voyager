@@ -49,7 +49,8 @@ class MenuItemPolicy extends BasePolicy
 
         // If permission doesn't exist, we can't check it!
         if (!self::$permissions->contains('key', $action.'_'.$slug)) {
-            return true;
+            // [fix] fail-closed: неизвестный раздел не даёт прав
+            return false;
         }
 
         return $user->hasPermission($action.'_'.$slug);

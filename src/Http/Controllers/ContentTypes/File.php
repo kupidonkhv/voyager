@@ -5,6 +5,7 @@ namespace TCG\Voyager\Http\Controllers\ContentTypes;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use TCG\Voyager\Support\SafeUpload;
 
 class File extends BaseType
 {
@@ -24,14 +25,18 @@ class File extends BaseType
 
         foreach ($files as $file) {
             $filename = $this->generateFileName($file, $path);
+            // [fix] расширение из имени клиента проверяется тем же allowlist, что и в медиа-менеджере
+            $extension = SafeUpload::normalizeExtension($file->getClientOriginalExtension());
+            SafeUpload::assertAllowedExtension($extension);
+            $storedName = SafeUpload::sanitizeBaseName($filename, $extension);
             $file->storeAs(
                 $path,
-                $filename.'.'.$file->getClientOriginalExtension(),
+                $storedName,
                 config('voyager.storage.disk', 'public')
             );
 
             array_push($filesPath, [
-                'download_link' => $path.$filename.'.'.$file->getClientOriginalExtension(),
+                'download_link' => $path.$storedName,
                 'original_name' => $file->getClientOriginalName(),
             ]);
         }

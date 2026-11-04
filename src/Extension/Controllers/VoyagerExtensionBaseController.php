@@ -563,6 +563,13 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
                 throw new Exception(__('voyager::generic.field_does_not_exist'), 400);
             }
 
+            // [fix] запись только в поля, объявленные в BREAD; защищённые атрибуты запрещены
+            $forbiddenFields = ['role_id', 'password', 'id', 'remember_token', 'created_at', 'updated_at'];
+            $allowedFields = $dataType ? $dataType->editRows->pluck('field')->all() : [];
+            if (in_array($field, $forbiddenFields, true) || ($allowedFields && !in_array($field, $allowedFields, true))) {
+                throw new Exception(__('voyager::generic.internal_error'), 403);
+            }
+
             $before = clone $data;
 
             if(isset($json) && $json) {

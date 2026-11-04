@@ -123,6 +123,8 @@ class VoyagerDatabaseController extends Controller
     {
         $this->authorize('browse_database');
 
+        $table = $this->validatedTable($table);
+
         if (!SchemaManager::tableExists($table)) {
             return redirect()
                 ->route('voyager.database.index')
@@ -159,6 +161,21 @@ class VoyagerDatabaseController extends Controller
         return redirect()
                ->route('voyager.database.index')
                ->with($this->alertSuccess(__('voyager::database.success_create_table', ['table' => $table['name']])));
+    }
+
+    /**
+     * [fix] DB-1: имя таблицы приходит из URL и уходит в SQL схемы (compileColumns(),
+     * compileTableExists()) без экранирования. Проверяем его тем же Identifier::validate(),
+     * что уже используется в Table/Column/Index/ForeignKey, и на недопустимое имя отвечаем 404,
+     * а не 500 с текстом SQL.
+     */
+    protected function validatedTable($table)
+    {
+        try {
+            return Identifier::validate($table, 'Table');
+        } catch (Exception $e) {
+            abort(404);
+        }
     }
 
     protected function prepareDbManager($action, $table = '')
@@ -243,6 +260,8 @@ class VoyagerDatabaseController extends Controller
     {
         $this->authorize('browse_database');
 
+        $table = $this->validatedTable($table);
+
         $additional_attributes = [];
         $model_name = Voyager::model('DataType')->where('name', $table)->pluck('model_name')->first();
         if (isset($model_name)) {
@@ -267,6 +286,8 @@ class VoyagerDatabaseController extends Controller
     public function destroy($table)
     {
         $this->authorize('browse_database');
+
+        $table = $this->validatedTable($table);
 
         try {
             SchemaManager::dropTable($table);

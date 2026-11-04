@@ -181,7 +181,8 @@ class VoyagerExtensionController extends BaseController
             ]);
 
         } catch (Exception $e) {
-            return $e->getMessage();
+            // [fix] текст исключения содержит пользовательский ввод -> экранируем и не отдаём как HTML-200
+            return response(e($e->getMessage()), 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
         }
     }
 

@@ -341,6 +341,19 @@ class VoyagerMediaController extends Controller
         try {
             SafeUpload::assertUploadedFile($file);
             SafeUpload::assertAllowedExtension($extension);
+            // [fix] расширение должно соответствовать определённому типу содержимого
+            $mimeExtensionMap = [
+                'image/jpeg' => ['jpg', 'jpeg'],
+                'image/png'  => ['png'],
+                'image/gif'  => ['gif'],
+                'image/bmp'  => ['bmp'],
+                'image/webp' => ['webp'],
+                'video/mp4'  => ['mp4'],
+            ];
+            $detectedMime = $file->getMimeType();
+            if (isset($mimeExtensionMap[$detectedMime]) && !in_array($extension, $mimeExtensionMap[$detectedMime], true)) {
+                throw new Exception(__('voyager::media.uploading_wrong_type'));
+            }
 
             $realPath = Storage::disk($this->filesystem)->path('/');
 
@@ -525,7 +538,9 @@ class VoyagerMediaController extends Controller
 
     private function addWatermarkToImage($image, $options)
     {
-        $watermark = VoyagerImage::read(Storage::disk($this->filesystem)->path($options->source));
+        // [fix] watermark.source — только относительный путь внутри медиа-диска
+        $watermarkPath = \TCG\Voyager\Support\SafeUpload::safeRelativePath((string) $options->source, false);
+        $watermark = VoyagerImage::read(Storage::disk($this->filesystem)->path($watermarkPath));
         // Resize watermark
         $width = $image->width() * (($options->size ?? 15) / 100);
         $watermark->scale($width);

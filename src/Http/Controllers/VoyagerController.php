@@ -96,8 +96,8 @@ class VoyagerController extends Controller
             $status = __('voyager::media.uploading_wrong_type');
         }
 
-        // Return URL for TinyMCE
-        return Voyager::image($fullFilename);
+        // [fix] URL отдаётся как текст (имя файла содержит пользовательский ввод)
+        return response(e((string) Voyager::image($fullFilename)), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
     }
 
     public function assets(Request $request)
