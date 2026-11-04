@@ -285,6 +285,19 @@ return [
             'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht',
             'phps', 'phar', 'cgi', 'pl', 'py', 'sh', 'bash', 'exe', 'bat',
             'cmd', 'com', 'htaccess', 'htpasswd', 'env',
+            // [fix-v3] активный контент (H1/H2): список дополняется, а не заменяется —
+            // ключ конфига целиком замещает DEFAULT_BLOCKED_EXTENSIONS из кода
+            'html', 'htm', 'xhtml', 'shtml', 'shtm', 'svg', 'svgz', 'xml',
+            'xsl', 'xslt', 'mhtml', 'mht', 'hta',
+        ],
+        // [fix-v3] запрещённые MIME по содержимому файла (finfo) для полей type=file
+        'blocked_mimetypes'   => [
+            'text/html', 'application/xhtml+xml', 'image/svg+xml',
+            'text/xml', 'application/xml', 'text/javascript',
+            'application/javascript', 'application/x-javascript',
+            'application/ecmascript', 'text/ecmascript',
+            'application/x-httpd-php', 'application/x-php', 'text/x-php',
+            'application/x-shockwave-flash',
         ],
         //Path for media-manager. Relative to the filesystem.
         'path'                => '/',

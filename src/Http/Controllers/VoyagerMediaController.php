@@ -540,7 +540,9 @@ class VoyagerMediaController extends Controller
     {
         // [fix] watermark.source — только относительный путь внутри медиа-диска
         $watermarkPath = \TCG\Voyager\Support\SafeUpload::safeRelativePath((string) $options->source, false);
-        $watermark = VoyagerImage::read(Storage::disk($this->filesystem)->path($watermarkPath));
+        // [fix-v3] симлинк внутри диска не должен выводить за его корень: realpath + префикс корня + запрет is_link()
+        $watermarkFile = $this->resolveWatermarkFile($watermarkPath);
+        $watermark = VoyagerImage::read($watermarkFile);
         // Resize watermark
         $width = $image->width() * (($options->size ?? 15) / 100);
         $watermark->scale($width);
@@ -552,5 +554,52 @@ class VoyagerMediaController extends Controller
             ($options->x ?? 0),
             ($options->y ?? 0)
         );
+    }
+
+    /**
+     * [fix-v3] H13: watermark.source не должен выходить за корень медиа-диска.
+     *
+     * Путь уже нормализован SafeUpload::safeRelativePath() (нет '..', абсолютных путей и
+     * нулевых байтов), но симлинк внутри диска позволял прочитать произвольный файл вне
+     * диска. Здесь запрещаем симлинк в любом компоненте пути и сверяем realpath() файла
+     * с realpath() корня диска.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function resolveWatermarkFile(string $watermarkPath): string
+    {
+        $root = Storage::disk($this->filesystem)->path('');
+        $rootReal = $root === '' ? false : realpath($root);
+
+        if ($rootReal === false) {
+            throw new \InvalidArgumentException('Invalid path.');
+        }
+
+        $rootReal = rtrim(str_replace('\\', '/', $rootReal), '/');
+
+        // Собираем путь от уже разрешённого корня и отказываем на первом же симлинке.
+        $candidate = $rootReal;
+        foreach (explode('/', $watermarkPath) as $segment) {
+            $candidate .= '/'.$segment;
+
+            if (is_link($candidate)) {
+                throw new \InvalidArgumentException('Invalid path.');
+            }
+        }
+
+        $real = realpath($candidate);
+
+        if ($real === false || !is_file($real)) {
+            throw new \InvalidArgumentException('Invalid path.');
+        }
+
+        $real = str_replace('\\', '/', $real);
+
+        // Префикс сравниваем с разделителем: /disk/public2 не должен считаться лежащим в /disk/public
+        if ($real !== $rootReal && !str_starts_with($real, $rootReal.'/')) {
+            throw new \InvalidArgumentException('Invalid path.');
+        }
+
+        return $real;
     }
 }

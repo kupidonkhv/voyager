@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -558,6 +559,12 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
             // Check permission
             $this->authorize('edit', $data);
 
+            // [fix-v3] имя поля — всегда строка: массив (field[]=role_id) не должен доходить
+            // до isset($data->{$field}) и до записи в модель
+            if (!is_string($field) || $field === '') {
+                throw new Exception(__('voyager::generic.internal_error'), 403);
+            }
+
             // Check if field exists
             if (!isset($data->{$field}) && $data->{$field} !== null) {
                 throw new Exception(__('voyager::generic.field_does_not_exist'), 400);
@@ -565,8 +572,18 @@ class VoyagerExtensionBaseController extends VoyagerBaseController
 
             // [fix] запись только в поля, объявленные в BREAD; защищённые атрибуты запрещены
             $forbiddenFields = ['role_id', 'password', 'id', 'remember_token', 'created_at', 'updated_at'];
-            $allowedFields = $dataType ? $dataType->editRows->pluck('field')->all() : [];
-            if (in_array($field, $forbiddenFields, true) || ($allowedFields && !in_array($field, $allowedFields, true))) {
+
+            // [fix-v3] при $menu модель всегда MenuItem, а DataType 'menu-items' не существует:
+            // allowlist строим из фактических колонок таблицы модели (denylist выше сохраняется),
+            // иначе $allowedFields остаётся пустым и проверка полей не выполняется вовсе.
+            if ($menu) {
+                $allowedFields = array_values(array_diff(Schema::getColumnListing($model->getTable()), $forbiddenFields));
+            } else {
+                $allowedFields = $dataType ? $dataType->editRows->pluck('field')->all() : [];
+            }
+
+            if (in_array($field, $forbiddenFields, true)
+                || ($allowedFields && !in_array($field, $allowedFields, true))) {
                 throw new Exception(__('voyager::generic.internal_error'), 403);
             }
 

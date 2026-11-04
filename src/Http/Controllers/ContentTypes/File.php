@@ -32,7 +32,9 @@ class File extends BaseType
             // [fix] расширение из имени клиента проверяется тем же allowlist, что и в медиа-менеджере
             $extension = SafeUpload::normalizeExtension($file->getClientOriginalExtension());
             // [fix-v2] пустое расширение не ошибка (сохраняем без расширения), опасные — по-прежнему запрещены
-            SafeUpload::assertSafeExtension($extension);
+            // [fix-v3] плюс барьеры по содержимому: MIME активного контента (text/html, image/svg+xml, …)
+            // и разметка в файле с нейтральным/неизвестным расширением (H1/H2 — остаток VULN-03/VULN-01)
+            SafeUpload::assertSafeUploadedFile($file, $extension);
             $storedName = SafeUpload::sanitizeBaseName($filename, $extension);
             $file->storeAs(
                 $path,
