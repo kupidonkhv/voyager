@@ -415,6 +415,12 @@
                     <button type="submit" class="btn pull-right btn-primary">{{ __('voyager::generic.submit') }}</button>
 
                 </form>
+
+        {{-- [fix-v2] изменяющий состояние GET запрещён: удаление связи отправляется формой вне основной формы BREAD --}}
+        <form id="voyager-delete-relationship-form" method="POST" action="" style="display:none;">
+            {{ csrf_field() }}
+            {{ method_field('DELETE') }}
+        </form>
             </div><!-- .col-md-12 -->
         </div><!-- .row -->
     </div><!-- .page-content -->

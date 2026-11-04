@@ -24,10 +24,15 @@ class File extends BaseType
         $path = $this->generatePath();
 
         foreach ($files as $file) {
+            // [fix-v2] в массиве file[] может прийти null — пропускаем, не роняя всю загрузку
+            if (!$file instanceof \Illuminate\Http\UploadedFile) {
+                continue;
+            }
             $filename = $this->generateFileName($file, $path);
             // [fix] расширение из имени клиента проверяется тем же allowlist, что и в медиа-менеджере
             $extension = SafeUpload::normalizeExtension($file->getClientOriginalExtension());
-            SafeUpload::assertAllowedExtension($extension);
+            // [fix-v2] пустое расширение не ошибка (сохраняем без расширения), опасные — по-прежнему запрещены
+            SafeUpload::assertSafeExtension($extension);
             $storedName = SafeUpload::sanitizeBaseName($filename, $extension);
             $file->storeAs(
                 $path,

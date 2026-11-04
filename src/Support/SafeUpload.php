@@ -68,6 +68,29 @@ class SafeUpload
         }
     }
 
+    /**
+     * [fix-v2] Проверка расширения для штатной загрузки файла (BREAD type=file).
+     * В отличие от assertAllowedExtension(), пустое расширение допустимо: файл без расширения
+     * веб-сервером не исполняется, а прежний запрет ломал штатную загрузку (тест
+     * tests/FormfieldsTest.php::testFormfieldFile).
+     */
+    public static function assertSafeExtension(string $extension): void
+    {
+        $extension = self::normalizeExtension($extension);
+
+        if ($extension === '') {
+            return;
+        }
+
+        if (in_array($extension, self::blockedExtensions(), true)) {
+            throw new \InvalidArgumentException(__('voyager::media.error_uploading'));
+        }
+
+        if (!preg_match('/^[a-z0-9]{1,16}$/', $extension)) {
+            throw new \InvalidArgumentException(__('voyager::media.error_uploading'));
+        }
+    }
+
     public static function assertImageExtension(string $extension): void
     {
         self::assertAllowedExtension($extension);
@@ -121,7 +144,10 @@ class SafeUpload
             $name = 'file';
         }
 
-        return $name.'.'.self::normalizeExtension($extension);
+        $extension = self::normalizeExtension($extension);
+
+        // [fix-v2] без расширения сохраняем имя как есть (иначе получилось бы «name.»)
+        return $extension === '' ? $name : $name.'.'.$extension;
     }
 
     public static function assertUploadedFile(UploadedFile $file): void

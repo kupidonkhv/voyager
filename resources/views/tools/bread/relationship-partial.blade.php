@@ -48,7 +48,8 @@
         </div>
     </div>
     <div class="col-md-12 voyager-relationship-details">
-        <a href="{{ route('voyager.bread.delete_relationship', $relationship['id']) }}" class="delete_relationship"><i class="voyager-trash"></i> {{ __('voyager::database.relationship.delete') }}</a>
+        {{-- [fix-v2] кнопка вне основной формы: formaction + form="voyager-delete-relationship-form" (POST + _method=DELETE + CSRF) --}}
+        <button type="submit" form="voyager-delete-relationship-form" formaction="{{ route('voyager.bread.delete_relationship', $relationship['id']) }}" class="delete_relationship" style="border:0;background:none;padding:0;color:#2ea8e5;"><i class="voyager-trash"></i> {{ __('voyager::database.relationship.delete') }}</button>
         <div class="relationship_details_content">
             <p class="relationship_table_select">{{ \Illuminate\Support\Str::singular(ucfirst($table)) }}</p>
             <select class="relationship_type select2" name="relationship_type_{{ $relationship['field'] }}">

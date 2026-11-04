@@ -49,8 +49,16 @@ class MenuItemPolicy extends BasePolicy
 
         // If permission doesn't exist, we can't check it!
         if (!self::$permissions->contains('key', $action.'_'.$slug)) {
-            // [fix] fail-closed: неизвестный раздел не даёт прав
-            return false;
+            // [fix-v2] показ пункта меню не должен зависеть от существования права раздела
+            // (например, route voyager.activity.index -> browse_activity, а ключ в БД browse_activity_logs):
+            // fail-open только для отображающих способностей, сама страница раздела авторизуется отдельно.
+            if (in_array($action, ['browse', 'view'], true)) {
+                return true;
+            }
+
+            // [fix-v2] fail-closed для изменений, но правка пункта меню — операция над разделом «Меню»:
+            // если права <action>_<slug> не существует, откатываемся на <action>_menus.
+            return $user->hasPermission($action.'_menus');
         }
 
         return $user->hasPermission($action.'_'.$slug);
